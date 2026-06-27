@@ -16,10 +16,10 @@ from typing import Any, cast
 # Path resolution
 # ---------------------------------------------------------------------------
 
-# This file is at backend/app/model/store.py
-# Repo root is three levels up.
+# DATA_DIR env var overrides the default (used in tests via backend/tests/fixtures/).
+# Default: repo root's data/ directory (4 parents up from backend/app/model/store.py).
 _REPO_ROOT: Path = Path(__file__).resolve().parents[3]
-_DATA_DIR: Path = _REPO_ROOT / "data"
+_DATA_DIR: Path = Path(os.environ.get("DATA_DIR") or str(_REPO_ROOT / "data"))
 
 
 def _data_path(filename: str) -> Path:
