@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-violet: #6b46c1;
+  --color-green: #16a34a;
+  --color-red: #dc2626;
+  --color-amber: #d97706;
+}
+
+/* Light theme variables (default) */
+:root {
+  --bg: #ffffff;
+  --card: #f8fafc;
+  --line: #e2e8f0;
+  --txt: #0f172a;
+  --dim: #64748b;
+  --violet: #6b46c1;
+  --green: #16a34a;
+  --red: #dc2626;
+  --amber: #d97706;
+}
+
+/* Dark theme variables */
+:root.dark {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --line: #334155;
+  --txt: #f1f5f9;
+  --dim: #94a3b8;
+  --violet: #a78bfa;
+  --green: #4ade80;
+  --red: #f87171;
+  --amber: #fbbf24;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--txt);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
