@@ -1,0 +1,28 @@
+{
+  "ci": {
+    "collect": {
+      "numberOfRuns": 3,
+      "startServerCommand": "cd frontend && npx vite preview --port 4173 --host 127.0.0.1",
+      "startServerReadyPattern": "Local.*4173",
+      "startServerReadyTimeout": 30000,
+      "url": ["http://127.0.0.1:4173/"]
+    },
+    "assert": {
+      "preset": "lighthouse:no-pwa",
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.80 }],
+        "categories:accessibility": ["error", { "minScore": 0.90 }],
+        "categories:best-practices": ["warn", { "minScore": 0.85 }],
+        "categories:seo": ["warn", { "minScore": 0.80 }],
+        "interactive": ["warn", { "maxNumericValue": 5000 }],
+        "max-potential-fid": ["warn", { "maxNumericValue": 130 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 300 }],
+        "cumulative-layout-shift": ["warn", { "maxNumericValue": 0.1 }],
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 4000 }]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}

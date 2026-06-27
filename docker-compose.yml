@@ -1,0 +1,52 @@
+# docker-compose.yml — optional local dev convenience
+# Provides hot-reload for both backend and frontend without installing dependencies globally.
+# Usage: docker compose up
+# Prerequisites: Docker Desktop running. First run builds images (may take 2-3 min).
+#
+# NOTE: This is entirely optional. The standard local workflow is:
+#   uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+#   cd frontend && npm run dev
+# Use Compose only if you prefer containers for local dev isolation.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    volumes:
+      - ./backend:/app/backend:ro
+      - ./data:/app/data          # read-write: retrain writes POST.json here
+      - ./research:/app/research  # read-write: research scripts write JSON+MD here
+    ports:
+      - "127.0.0.1:8000:8000"    # loopback only — not reachable outside this machine
+    environment:
+      - RETRAIN_TOKEN=${RETRAIN_TOKEN:-}
+      - DATA_DIR=/app/data
+    command: >
+      uvicorn backend.app.main:app
+        --reload
+        --host 0.0.0.0
+        --port 8000
+        --reload-dir /app/backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/teams"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../deploy/Dockerfile.frontend
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+    ports:
+      - "127.0.0.1:5173:5173"    # loopback only
+    environment:
+      - VITE_BACKEND_URL=http://127.0.0.1:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: npm run dev -- --host 0.0.0.0 --port 5173

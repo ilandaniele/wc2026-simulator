@@ -1,0 +1,64 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+backend/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+*.so
+
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+frontend/node_modules/
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.react-router/
+.size-limit-report.json
+
+# ── Model artefacts (regenerable via `python retrain.py` or POST /model/retrain) ──
+data/POST.json
+data/POST_A.json
+data/model_meta.json
+
+# ── Runtime state (seeded; PUT endpoints update these) ───────────────────────
+# data/tourney.json  ← KEEP: hand-seeded WC2026 snapshot, checked in
+# data/market.json   ← KEEP: initial odds, checked in
+
+# ── Research outputs (regenerable via research scripts) ──────────────────────
+research/*.json
+research/*.md
+
+# ── Environment & secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+
+# ── Editor & OS noise ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/settings.json
+*.iml
+
+# ── Coverage & reports ───────────────────────────────────────────────────────
+htmlcov/
+.coverage
+coverage.xml
+coverage/
+playwright-report/
+test-results/
+
+# ── Lighthouse CI ────────────────────────────────────────────────────────────
+.lighthouseci/
+
+# ── SBOM (regenerable; keep as CI artefacts, not in repo) ────────────────────
+sbom-backend.json
+sbom-frontend.json
