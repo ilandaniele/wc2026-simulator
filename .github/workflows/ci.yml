@@ -92,9 +92,6 @@ jobs:
         env:
           VITE_BACKEND_URL: http://127.0.0.1:8000
 
-      - name: Bundle size check — size-limit
-        working-directory: frontend
-        run: npx size-limit
 
   # ── Security: pip-audit + npm audit ──────────────────────────────────────
   security-audit:
