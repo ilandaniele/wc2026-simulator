@@ -1,0 +1,16 @@
+[build]
+  base    = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Set VITE_BACKEND_URL to your Render service URL after deploying the backend.
+  # Example: VITE_BACKEND_URL = "https://wc2026-api.onrender.com"
+  # Override this in the Netlify UI: Site settings → Build & deploy → Environment variables
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options      = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy      = "strict-origin-when-cross-origin"

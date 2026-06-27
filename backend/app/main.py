@@ -1,20 +1,20 @@
-"""FastAPI application entry point â€” full endpoint suite (W2 + W3).
+"""FastAPI application entry point â€" full endpoint suite (W2 + W3).
 
 W2 endpoints (unchanged):
-  GET  /health                â€” liveness probe
-  GET  /model/status          â€” model metadata (AC2)
-  GET  /model/strength        â€” ranked team strength list (AC3)
-  GET  /tourney/state         â€” current tournament standings (AC4)
-  POST /simulate/tournament   â€” Monte Carlo tournament sim (AC6, AC13)
+  GET  /health                â€" liveness probe
+  GET  /model/status          â€" model metadata (AC2)
+  GET  /model/strength        â€" ranked team strength list (AC3)
+  GET  /tourney/state         â€" current tournament standings (AC4)
+  POST /simulate/tournament   â€" Monte Carlo tournament sim (AC6, AC13)
 
 W3 endpoints (new):
-  GET  /teams                 â€” list 48 team names (AC1)
-  PUT  /tourney/state         â€” update tournament standings (AC5)
-  POST /simulate/match        â€” single-match prob (AC7, AC15)
-  POST /simulate/modal        â€” score distribution (AC8)
-  POST /simulate/h2h          â€” head-to-head CI (AC9)
-  GET  /market/odds           â€” today's bookmaker odds (AC10)
-  POST /model/retrain         â€” retrain model, rate-limited 1/600s (AC11, AC12)
+  GET  /teams                 â€" list 48 team names (AC1)
+  PUT  /tourney/state         â€" update tournament standings (AC5)
+  POST /simulate/match        â€" single-match prob (AC7, AC15)
+  POST /simulate/modal        â€" score distribution (AC8)
+  POST /simulate/h2h          â€" head-to-head CI (AC9)
+  GET  /market/odds           â€" today's bookmaker odds (AC10)
+  POST /model/retrain         â€" retrain model, rate-limited 1/600s (AC11, AC12)
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import collections
 import math
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -67,13 +68,19 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 # ---------------------------------------------------------------------------
-# CORS allowlist â€” localhost only (loopback tool, never internet-exposed)
+# CORS allowlist - configurable via ALLOWED_ORIGINS env var (comma-separated).
+# Default: localhost only for local development.
 # ---------------------------------------------------------------------------
 
-_ALLOWED_ORIGINS: list[str] = [
-    "http://localhost:5173",  # Vite dev server
-    "http://localhost:4173",  # Vite preview
-]
+_raw = os.environ.get("ALLOWED_ORIGINS", "")
+_ALLOWED_ORIGINS: list[str] = (
+    [o.strip() for o in _raw.split(",") if o.strip()]
+    if _raw
+    else [
+        "http://localhost:5173",
+        "http://localhost:4173",
+    ]
+)
 
 # ---------------------------------------------------------------------------
 # Rate limiter (slowapi)
@@ -89,7 +96,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan â€” no external connections to open/close."""
+    """Application lifespan â€" no external connections to open/close."""
     yield
 
 
@@ -117,7 +124,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# Exception handlers â€” ordered from most-specific to least-specific
+# Exception handlers â€" ordered from most-specific to least-specific
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, request_validation_error_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ValidationError, pydantic_validation_error_handler)  # type: ignore[arg-type]
@@ -298,7 +305,7 @@ def _h2h_ci(
 
 @app.get("/health", tags=["meta"])
 async def health() -> dict[str, str]:
-    """Liveness probe â€” returns 200 when the process is up."""
+    """Liveness probe â€" returns 200 when the process is up."""
     return {"status": "ok"}
 
 
