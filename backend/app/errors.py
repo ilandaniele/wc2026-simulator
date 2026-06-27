@@ -5,6 +5,9 @@ All error responses follow the envelope: {error: {code, detail}}.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -25,7 +28,7 @@ def unknown_team_response(team: str) -> JSONResponse:
     )
 
 
-def _format_validation_errors(errors: list[dict]) -> str:  # type: ignore[type-arg]
+def _format_validation_errors(errors: Sequence[Any]) -> str:
     """Format a list of Pydantic error dicts into a human-readable string."""
     field_msgs = []
     for e in errors:
@@ -90,8 +93,9 @@ async def rate_limit_exceeded_handler(
 
     retry_after = 600
     try:
-        if hasattr(exc, "limit") and hasattr(exc.limit, "reset_at"):
-            retry_after = max(0, int(exc.limit.reset_at - time.time()))
+        lim = getattr(exc, "limit", None)
+        if lim is not None and hasattr(lim, "reset_at"):
+            retry_after = max(0, int(lim.reset_at - time.time()))
     except Exception as _e:  # noqa: BLE001
         _ = _e  # intentional fallback to default 600s
 

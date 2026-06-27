@@ -10,7 +10,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 # ---------------------------------------------------------------------------
 # Path resolution
@@ -40,19 +40,19 @@ def load_post(model_id: str = "current") -> dict[str, Any]:
     filename = "POST.json" if model_id == "current" else "POST_A.json"
     path = _data_path(filename)
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
 def load_tourney() -> dict[str, Any]:
     """Load tournament state from data/tourney.json."""
     with open(_data_path("tourney.json"), encoding="utf-8") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
 def load_market() -> dict[str, Any]:
     """Load market odds from data/market.json."""
     with open(_data_path("market.json"), encoding="utf-8") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
 _DEFAULT_META: dict[str, Any] = {
@@ -87,7 +87,7 @@ def load_meta() -> dict[str, Any]:
         _write_json(path, _DEFAULT_META)
         return dict(_DEFAULT_META)
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:

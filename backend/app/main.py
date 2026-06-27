@@ -114,7 +114,7 @@ app.add_middleware(
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, request_validation_error_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ValidationError, pydantic_validation_error_handler)  # type: ignore[arg-type]
-app.add_exception_handler(Exception, generic_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(Exception, generic_exception_handler)
 
 
 # ---------------------------------------------------------------------------
