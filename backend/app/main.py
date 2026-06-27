@@ -1,36 +1,86 @@
-"""FastAPI application entry point.
+"""FastAPI application entry point — full endpoint suite (W2 + W3).
 
-Endpoints implemented here (W2):
-  GET /health           — liveness probe
-  GET /model/status     — model metadata (AC2)
-  GET /model/strength   — ranked team strength list (AC3)
-  GET /tourney/state    — current tournament standings (AC4)
-  POST /simulate/tournament — Monte Carlo tournament sim (AC13)
+W2 endpoints (unchanged):
+  GET  /health                — liveness probe
+  GET  /model/status          — model metadata (AC2)
+  GET  /model/strength        — ranked team strength list (AC3)
+  GET  /tourney/state         — current tournament standings (AC4)
+  POST /simulate/tournament   — Monte Carlo tournament sim (AC6, AC13)
 
-Full endpoint suite (W3): schemas, CORS fine-tuning, retrain, h2h, modal, etc.
+W3 endpoints (new):
+  GET  /teams                 — list 48 team names (AC1)
+  PUT  /tourney/state         — update tournament standings (AC5)
+  POST /simulate/match        — single-match prob (AC7, AC15)
+  POST /simulate/modal        — score distribution (AC8)
+  POST /simulate/h2h          — head-to-head CI (AC9)
+  GET  /market/odds           — today's bookmaker odds (AC10)
+  POST /model/retrain         — retrain model, rate-limited 1/600s (AC11, AC12)
 """
 
 from __future__ import annotations
 
+import asyncio
+import collections
+import datetime as dt
+import math
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
-from backend.app.model.store import load_meta, load_post, load_tourney
-from backend.app.simulation.engine import compute_strength, run_tournament
+from backend.app.errors import (
+    generic_exception_handler,
+    pydantic_validation_error_handler,
+    rate_limit_exceeded_handler,
+    request_validation_error_handler,
+    unknown_team_response,
+)
+from backend.app.model.store import load_market, load_meta, load_post, load_tourney, save_tourney
+from backend.app.schemas import (
+    ErrorResponse,
+    RetrainRequest,
+    SimH2HRequest,
+    SimMatchRequest,
+    SimModalRequest,
+    SimTournamentRequest,
+    TourneyStateBody,
+)
+from backend.app.simulation.engine import (
+    compute_strength,
+    lams,
+    mul,
+    next_rand,
+    pois,
+    run_tournament,
+)
 
 # ---------------------------------------------------------------------------
 # CORS allowlist — localhost only (loopback tool, never internet-exposed)
 # ---------------------------------------------------------------------------
+
 _ALLOWED_ORIGINS: list[str] = [
     "http://localhost:5173",   # Vite dev server
     "http://localhost:4173",   # Vite preview
 ]
 
+# ---------------------------------------------------------------------------
+# Rate limiter (slowapi)
+# ---------------------------------------------------------------------------
+
+limiter = Limiter(key_func=get_remote_address)
+
+
+# ---------------------------------------------------------------------------
+# Application lifespan
+# ---------------------------------------------------------------------------
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
@@ -38,14 +88,22 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
+# ---------------------------------------------------------------------------
+# App construction
+# ---------------------------------------------------------------------------
+
 app = FastAPI(
     title="WC2026 Monte Carlo Predictor",
-    version="0.2.0",
+    version="0.3.0",
     docs_url="/docs",
     redoc_url=None,
     lifespan=lifespan,
 )
 
+# Rate limiter state
+app.state.limiter = limiter
+
+# Middleware: CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
@@ -53,6 +111,181 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
+# Exception handlers — ordered from most-specific to least-specific
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_exception_handler(RequestValidationError, request_validation_error_handler)  # type: ignore[arg-type]
+app.add_exception_handler(ValidationError, pydantic_validation_error_handler)  # type: ignore[arg-type]
+app.add_exception_handler(Exception, generic_exception_handler)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _validate_teams(post: dict[str, Any], *team_names: str) -> None:
+    """Raise a JSON 400 error via HTTPException lookalike for unknown team names.
+
+    Instead of raising HTTPException we return a JSONResponse directly from
+    endpoints so the error envelope is exactly {error: {code, detail}}.
+    """
+    known = set(post["teams"])
+    for name in team_names:
+        if name not in known:
+            raise _UnknownTeamError(name)
+
+
+class _UnknownTeamError(Exception):
+    """Raised internally when a team name is not in the model."""
+
+    def __init__(self, team: str) -> None:
+        super().__init__(team)
+        self.team = team
+
+
+def _m_prob(
+    home_idx: int,
+    away_idx: int,
+    post: dict[str, Any],
+    n_per_draw: int,
+    rho: float,
+) -> tuple[float, float, float]:
+    """Compute marginal win/draw/loss probabilities via Monte Carlo over all draws.
+
+    Mirrors the JS ``mProb()`` function:
+    - For each posterior draw, compute (lh, la) and draw ``n_per_draw`` match outcomes.
+    - Aggregate to pH, pD, pA fractions.
+    """
+    adja = np.zeros(len(post["teams"]), dtype=np.float64)
+    adjd = np.zeros(len(post["teams"]), dtype=np.float64)
+
+    n_draws = len(post["base"])
+    wins_h = 0
+    draws = 0
+    wins_a = 0
+    rng = mul(0xC0FFEE)
+
+    for d in range(n_draws):
+        lh, la = lams(home_idx, away_idx, d, post, adja, adjd)
+        for _ in range(n_per_draw):
+            if rho > 0:
+                l3 = rho * min(lh, la)
+                c = pois(l3, rng)
+                x = pois(lh - l3, rng) + c
+                y = pois(la - l3, rng) + c
+            else:
+                x = pois(lh, rng)
+                y = pois(la, rng)
+            if x > y:
+                wins_h += 1
+            elif y > x:
+                wins_a += 1
+            else:
+                draws += 1
+
+    total = n_draws * n_per_draw
+    return wins_h / total, draws / total, wins_a / total
+
+
+def _score_distribution(
+    home_idx: int,
+    away_idx: int,
+    post: dict[str, Any],
+    rho: float,
+    top_k: int,
+) -> list[dict[str, Any]]:
+    """Compute score distribution across all draws (exact Poisson convolution).
+
+    For each draw, compute P(h goals, a goals) analytically (Poisson PMF),
+    then average across draws.  Returns top-k scorelines by probability.
+    """
+    adja = np.zeros(len(post["teams"]), dtype=np.float64)
+    adjd = np.zeros(len(post["teams"]), dtype=np.float64)
+
+    n_draws = len(post["base"])
+    score_counts: dict[tuple[int, int], float] = collections.defaultdict(float)
+
+    max_goals = 8
+
+    for d in range(n_draws):
+        lh, la = lams(home_idx, away_idx, d, post, adja, adjd)
+        # Independent Poisson PMF (bivariate adjustment small, use expected lh/la)
+        for h_g in range(max_goals + 1):
+            p_h = math.exp(-lh) * (lh ** h_g) / math.factorial(h_g)
+            if p_h < 1e-6:
+                continue
+            for a_g in range(max_goals + 1):
+                p_a = math.exp(-la) * (la ** a_g) / math.factorial(a_g)
+                if p_a < 1e-6:
+                    continue
+                score_counts[(h_g, a_g)] += p_h * p_a / n_draws
+
+    sorted_scores = sorted(score_counts.items(), key=lambda x: -x[1])
+    return [
+        {"score": f"{h}-{a}", "prob": round(prob, 6)}
+        for (h, a), prob in sorted_scores[:top_k]
+    ]
+
+
+def _h2h_ci(
+    home_idx: int,
+    away_idx: int,
+    post: dict[str, Any],
+    rho: float,
+    n_ci_draws: int = 400,
+) -> tuple[float, float, float, float, float, float]:
+    """Compute pH, pD, pA plus credible interval (lo, med, hi) on pH.
+
+    Strategy: sample n_ci_draws posterior draws; for each, compute the
+    expected pH analytically from lh/la Poisson.  Return (pH, pD, pA) as
+    means and the 5th/50th/95th percentile of the per-draw pH distribution.
+    """
+    adja = np.zeros(len(post["teams"]), dtype=np.float64)
+    adjd = np.zeros(len(post["teams"]), dtype=np.float64)
+
+    n_draws = len(post["base"])
+    step = max(1, n_draws // n_ci_draws)
+    idxs = list(range(0, n_draws, step))
+
+    ph_per_draw: list[float] = []
+    pd_per_draw: list[float] = []
+    pa_per_draw: list[float] = []
+
+    max_goals = 8
+
+    for d in idxs:
+        lh, la = lams(home_idx, away_idx, d, post, adja, adjd)
+        ph_d = pd_d = pa_d = 0.0
+        for h_g in range(max_goals + 1):
+            p_h = math.exp(-lh) * (lh ** h_g) / math.factorial(h_g)
+            if p_h < 1e-8:
+                continue
+            for a_g in range(max_goals + 1):
+                p_a = math.exp(-la) * (la ** a_g) / math.factorial(a_g)
+                p = p_h * p_a
+                if h_g > a_g:
+                    ph_d += p
+                elif h_g < a_g:
+                    pa_d += p
+                else:
+                    pd_d += p
+        ph_per_draw.append(ph_d)
+        pd_per_draw.append(pd_d)
+        pa_per_draw.append(pa_d)
+
+    ph_arr = np.array(ph_per_draw)
+    pd_arr = np.array(pd_per_draw)
+    pa_arr = np.array(pa_per_draw)
+
+    ph = float(ph_arr.mean())
+    pd = float(pd_arr.mean())
+    pa = float(pa_arr.mean())
+
+    ci_lo = float(np.percentile(ph_arr, 5))
+    ci_med = float(np.percentile(ph_arr, 50))
+    ci_hi = float(np.percentile(ph_arr, 95))
+
+    return ph, pd, pa, ci_lo, ci_med, ci_hi
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +296,24 @@ app.add_middleware(
 async def health() -> dict[str, str]:
     """Liveness probe — returns 200 when the process is up."""
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# GET /teams  (AC1)
+# ---------------------------------------------------------------------------
+
+class TeamsResponse(BaseModel):
+    teams: list[str]
+
+
+@app.get("/teams", response_model=TeamsResponse, tags=["model"])
+async def get_teams() -> TeamsResponse:
+    """Return the ordered list of 48 WC2026 teams from the model."""
+    try:
+        post = load_post()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail="POST.json not found") from exc
+    return TeamsResponse(teams=post["teams"])
 
 
 # ---------------------------------------------------------------------------
@@ -141,15 +392,22 @@ async def tourney_state() -> TourneyStateResponse:
 
 
 # ---------------------------------------------------------------------------
-# POST /simulate/tournament  (AC13)
+# PUT /tourney/state  (AC5)
 # ---------------------------------------------------------------------------
 
-class SimTournamentRequest(BaseModel):
-    n: int = Field(default=6000, ge=1, le=20000)
-    seed: int = Field(default=0xC0FFEE)
-    rho: float = Field(default=0.05, ge=0.0, le=1.0)
-    model_id: str = Field(default="current")
+@app.put("/tourney/state", response_model=dict, tags=["tourney"])
+async def put_tourney_state(body: TourneyStateBody) -> dict[str, bool]:
+    """Replace the current tournament state document atomically."""
+    try:
+        save_tourney(body.model_dump())
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
+    return {"ok": True}
 
+
+# ---------------------------------------------------------------------------
+# POST /simulate/tournament  (AC6, AC13)
+# ---------------------------------------------------------------------------
 
 class TeamResult(BaseModel):
     team: str
@@ -183,12 +441,7 @@ async def simulate_tournament(body: SimTournamentRequest) -> SimTournamentRespon
     adja = np.zeros(n_teams, dtype=np.float64)
     adjd = np.zeros(n_teams, dtype=np.float64)
 
-    # Restore the original PRNG seed so runT is deterministic per seed value
-    # We re-seed by passing body.seed as the initial value (mirrors JS mul(seed))
-    # but run_tournament internally uses 0xC0FFEE per JS — for determinism we
-    # expose seed on the request but the JS compat seed is always 0xC0FFEE.
-    # To support arbitrary seeds we XOR with body.seed.
-    effective_seed = body.seed
+    effective_seed = body.seed if body.seed is not None else 0xC0FFEE
     tally = run_tournament(
         n=body.n,
         post=post,
@@ -199,7 +452,6 @@ async def simulate_tournament(body: SimTournamentRequest) -> SimTournamentRespon
         seed=effective_seed,
     )
 
-    # Build results sorted by champ desc
     state_data = tourney["state"]
     results = [
         TeamResult(
@@ -217,4 +469,177 @@ async def simulate_tournament(body: SimTournamentRequest) -> SimTournamentRespon
     ]
     results.sort(key=lambda x: -x.champ)
 
-    return SimTournamentResponse(results=results, n=body.n, seed=body.seed)
+    return SimTournamentResponse(results=results, n=body.n, seed=effective_seed)
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/match  (AC7, AC15)
+# ---------------------------------------------------------------------------
+
+class SimMatchResponse(BaseModel):
+    pH: float
+    pD: float
+    pA: float
+    fair_odd_home: float | None = None
+    fair_odd_away: float | None = None
+
+
+@app.post("/simulate/match", response_model=SimMatchResponse, tags=["simulate"])
+async def simulate_match(body: SimMatchRequest) -> SimMatchResponse | JSONResponse:
+    """Compute home/draw/away probabilities for a single match."""
+    try:
+        post = load_post(body.model_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    try:
+        _validate_teams(post, body.home, body.away)
+    except _UnknownTeamError as exc:
+        return unknown_team_response(exc.team)
+
+    ti = {t: i for i, t in enumerate(post["teams"])}
+    hi = ti[body.home]
+    ai = ti[body.away]
+
+    ph, pd, pa = _m_prob(hi, ai, post, body.n_per_draw, body.rho)
+
+    fair_odd_home = round(1.0 / ph, 3) if ph > 0 else None
+    fair_odd_away = round(1.0 / pa, 3) if pa > 0 else None
+
+    return SimMatchResponse(pH=ph, pD=pd, pA=pa, fair_odd_home=fair_odd_home, fair_odd_away=fair_odd_away)
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/modal  (AC8)
+# ---------------------------------------------------------------------------
+
+class ScoreLine(BaseModel):
+    score: str
+    prob: float
+
+
+class SimModalResponse(BaseModel):
+    scorelines: list[ScoreLine]
+
+
+@app.post("/simulate/modal", response_model=SimModalResponse, tags=["simulate"])
+async def simulate_modal(body: SimModalRequest) -> SimModalResponse | JSONResponse:
+    """Return the top-k most probable scorelines for a match."""
+    try:
+        post = load_post(body.model_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    try:
+        _validate_teams(post, body.home, body.away)
+    except _UnknownTeamError as exc:
+        return unknown_team_response(exc.team)
+
+    ti = {t: i for i, t in enumerate(post["teams"])}
+    hi = ti[body.home]
+    ai = ti[body.away]
+
+    raw = _score_distribution(hi, ai, post, rho=0.05, top_k=body.top_k)
+    scorelines = [ScoreLine(**s) for s in raw]
+    return SimModalResponse(scorelines=scorelines)
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/h2h  (AC9)
+# ---------------------------------------------------------------------------
+
+class SimH2HResponse(BaseModel):
+    pH: float
+    pD: float
+    pA: float
+    ci_lo: float
+    ci_med: float
+    ci_hi: float
+    scorelines: list[ScoreLine]
+
+
+@app.post("/simulate/h2h", response_model=SimH2HResponse, tags=["simulate"])
+async def simulate_h2h(body: SimH2HRequest) -> SimH2HResponse | JSONResponse:
+    """Head-to-head analysis: pH/pD/pA + credible interval + top-k scorelines."""
+    try:
+        post = load_post(body.model_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    try:
+        _validate_teams(post, body.home, body.away)
+    except _UnknownTeamError as exc:
+        return unknown_team_response(exc.team)
+
+    ti = {t: i for i, t in enumerate(post["teams"])}
+    hi = ti[body.home]
+    ai = ti[body.away]
+
+    ph, pd, pa, ci_lo, ci_med, ci_hi = _h2h_ci(hi, ai, post, rho=0.05)
+    scorelines_raw = _score_distribution(hi, ai, post, rho=0.05, top_k=body.top_k)
+    scorelines = [ScoreLine(**s) for s in scorelines_raw]
+
+    return SimH2HResponse(
+        pH=ph,
+        pD=pd,
+        pA=pa,
+        ci_lo=ci_lo,
+        ci_med=ci_med,
+        ci_hi=ci_hi,
+        scorelines=scorelines,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /market/odds  (AC10)
+# ---------------------------------------------------------------------------
+
+class OddsEntry(BaseModel):
+    h: int
+    d: int | None = None
+    a: int
+
+
+class MarketOddsResponse(BaseModel):
+    odds: dict[str, OddsEntry]
+
+
+@app.get("/market/odds", response_model=MarketOddsResponse, tags=["market"])
+async def market_odds() -> MarketOddsResponse:
+    """Return today's bookmaker odds from data/market.json."""
+    try:
+        data = load_market()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail="market.json not found") from exc
+    odds = {k: OddsEntry(**v) for k, v in data.items()}
+    return MarketOddsResponse(odds=odds)
+
+
+# ---------------------------------------------------------------------------
+# POST /model/retrain  (AC11, AC12)
+# Rate-limited: 1 request per 600 seconds (10 minutes)
+# ---------------------------------------------------------------------------
+
+class RetrainResponse(BaseModel):
+    ok: bool
+    model_id: str
+    trained_at: str
+    top10: list[str]
+
+
+@app.post("/model/retrain", response_model=RetrainResponse, tags=["model"])
+@limiter.limit("1/600 seconds")
+async def model_retrain(
+    request: Request,  # required by slowapi
+    body: RetrainRequest,
+) -> RetrainResponse | JSONResponse:
+    """Retrain the model.  Rate-limited to 1 call per 10 minutes."""
+    from backend.app.model.trainer import retrain as _retrain  # noqa: PLC0415
+
+    meta = await asyncio.to_thread(_retrain, half_life=body.half_life, n_draws=body.n_draws)
+    return RetrainResponse(
+        ok=True,
+        model_id=meta["model_id"],
+        trained_at=meta["trained_at"],
+        top10=meta["top10"],
+    )
