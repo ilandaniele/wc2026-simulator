@@ -42,6 +42,7 @@ class SimModalRequest(BaseModel):
     home: str
     away: str
     top_k: Annotated[int, Field(default=10, ge=1, le=50)] = 10
+    rho: Annotated[float, Field(default=0.05, ge=0.0, le=0.2)] = 0.05
     model_id: str = "current"
 
     model_config = {"extra": "forbid"}
@@ -52,6 +53,7 @@ class SimH2HRequest(BaseModel):
     away: str
     knockout: bool = False
     top_k: Annotated[int, Field(default=6, ge=1, le=50)] = 6
+    rho: Annotated[float, Field(default=0.05, ge=0.0, le=0.2)] = 0.05
     model_id: str = "current"
 
     model_config = {"extra": "forbid"}

@@ -34,7 +34,14 @@ from backend.app.errors import (
     request_validation_error_handler,
     unknown_team_response,
 )
-from backend.app.model.store import load_market, load_meta, load_post, load_tourney, save_tourney
+from backend.app.model.store import (
+    load_market,
+    load_meta,
+    load_post,
+    load_tourney,
+    save_market,
+    save_tourney,
+)
 from backend.app.schemas import (
     RetrainRequest,
     SimH2HRequest,
@@ -220,9 +227,7 @@ def _score_distribution(
                 score_counts[(h_g, a_g)] += p_h * p_a / n_draws
 
     sorted_scores = sorted(score_counts.items(), key=lambda x: -x[1])
-    return [
-        {"score": f"{h}-{a}", "prob": round(prob, 6)} for (h, a), prob in sorted_scores[:top_k]
-    ]
+    return [{"h": h, "a": a, "prob": round(prob, 6)} for (h, a), prob in sorted_scores[:top_k]]
 
 
 def _h2h_ci(
@@ -523,7 +528,8 @@ async def simulate_match(body: SimMatchRequest) -> SimMatchResponse | JSONRespon
 
 
 class ScoreLine(BaseModel):
-    score: str
+    h: int
+    a: int
     prob: float
 
 
@@ -548,7 +554,7 @@ async def simulate_modal(body: SimModalRequest) -> SimModalResponse | JSONRespon
     hi = ti[body.home]
     ai = ti[body.away]
 
-    raw = _score_distribution(hi, ai, post, rho=0.05, top_k=body.top_k)
+    raw = _score_distribution(hi, ai, post, rho=body.rho, top_k=body.top_k)
     scorelines = [ScoreLine(**s) for s in raw]
     return SimModalResponse(scorelines=scorelines)
 
@@ -562,10 +568,10 @@ class SimH2HResponse(BaseModel):
     pH: float  # noqa: N815
     pD: float  # noqa: N815
     pA: float  # noqa: N815
-    ci_lo: float
-    ci_med: float
-    ci_hi: float
-    scorelines: list[ScoreLine]
+    ci_lower: float
+    ci_median: float
+    ci_upper: float
+    top_scorelines: list[ScoreLine]
 
 
 @app.post("/simulate/h2h", response_model=SimH2HResponse, tags=["simulate"])
@@ -585,18 +591,18 @@ async def simulate_h2h(body: SimH2HRequest) -> SimH2HResponse | JSONResponse:
     hi = ti[body.home]
     ai = ti[body.away]
 
-    ph, pd, pa, ci_lo, ci_med, ci_hi = _h2h_ci(hi, ai, post, rho=0.05)
-    scorelines_raw = _score_distribution(hi, ai, post, rho=0.05, top_k=body.top_k)
-    scorelines = [ScoreLine(**s) for s in scorelines_raw]
+    ph, pd, pa, ci_lo, ci_med, ci_hi = _h2h_ci(hi, ai, post, rho=body.rho)
+    scorelines_raw = _score_distribution(hi, ai, post, rho=body.rho, top_k=body.top_k)
+    top_scorelines = [ScoreLine(**s) for s in scorelines_raw]
 
     return SimH2HResponse(
         pH=ph,
         pD=pd,
         pA=pa,
-        ci_lo=ci_lo,
-        ci_med=ci_med,
-        ci_hi=ci_hi,
-        scorelines=scorelines,
+        ci_lower=ci_lo,
+        ci_median=ci_med,
+        ci_upper=ci_hi,
+        top_scorelines=top_scorelines,
     )
 
 
@@ -624,6 +630,27 @@ async def market_odds() -> MarketOddsResponse:
         raise HTTPException(status_code=503, detail="market.json not found") from exc
     odds = {k: OddsEntry(**v) for k, v in data.items()}
     return MarketOddsResponse(odds=odds)
+
+
+# ---------------------------------------------------------------------------
+# PUT /market/odds  (AC10)
+# ---------------------------------------------------------------------------
+
+
+class MarketOddsBody(BaseModel):
+    odds: dict[str, OddsEntry]
+
+    model_config = {"extra": "forbid"}
+
+
+@app.put("/market/odds", response_model=dict, tags=["market"])
+async def put_market_odds(body: MarketOddsBody) -> dict[str, bool]:
+    """Replace today's bookmaker odds document atomically."""
+    try:
+        save_market({k: v.model_dump() for k, v in body.odds.items()})
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

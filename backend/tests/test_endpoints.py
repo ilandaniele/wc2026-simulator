@@ -151,7 +151,7 @@ async def test_simulate_match_probs_sum(client: AsyncClient) -> None:
 
 @pytest.mark.anyio
 async def test_simulate_modal(client: AsyncClient) -> None:
-    """AC8: POST /simulate/modal → ≤10 scorelines with score and prob."""
+    """AC8: POST /simulate/modal → ≤10 scorelines with {h, a, prob} integers."""
     payload = {
         "home": "Argentina",
         "away": "Jordan",
@@ -166,11 +166,11 @@ async def test_simulate_modal(client: AsyncClient) -> None:
     assert len(scorelines) > 0
 
     for sl in scorelines:
-        assert "score" in sl, "scoreline missing 'score'"
+        assert "h" in sl, "scoreline missing 'h'"
+        assert "a" in sl, "scoreline missing 'a'"
         assert "prob" in sl, "scoreline missing 'prob'"
-        # score format should be "N-M"
-        parts = sl["score"].split("-")
-        assert len(parts) == 2, f"score '{sl['score']}' not in N-M format"
+        assert isinstance(sl["h"], int), f"h is not int: {sl['h']!r}"
+        assert isinstance(sl["a"], int), f"a is not int: {sl['a']!r}"
         assert isinstance(sl["prob"], float)
         assert 0.0 < sl["prob"] <= 1.0
 
@@ -182,7 +182,7 @@ async def test_simulate_modal(client: AsyncClient) -> None:
 
 @pytest.mark.anyio
 async def test_simulate_h2h(client: AsyncClient) -> None:
-    """AC9: POST /simulate/h2h → 200 with pH/pD/pA/ci_lo/ci_med/ci_hi/scorelines."""
+    """AC9: POST /simulate/h2h → 200 with ci_lower/ci_median/ci_upper/top_scorelines."""
     payload = {
         "home": "Colombia",
         "away": "Portugal",
@@ -193,19 +193,20 @@ async def test_simulate_h2h(client: AsyncClient) -> None:
     assert resp.status_code == 200, resp.text
     data = resp.json()
 
-    for field in ("pH", "pD", "pA", "ci_lo", "ci_med", "ci_hi", "scorelines"):
+    for field in ("pH", "pD", "pA", "ci_lower", "ci_median", "ci_upper", "top_scorelines"):
         assert field in data, f"Missing field: {field}"
 
     # CI ordering
-    assert data["ci_lo"] <= data["ci_med"] <= data["ci_hi"], (
-        f"CI not ordered: lo={data['ci_lo']}, med={data['ci_med']}, hi={data['ci_hi']}"
+    assert data["ci_lower"] <= data["ci_median"] <= data["ci_upper"], (
+        f"CI not ordered: lower={data['ci_lower']}, median={data['ci_median']}, "
+        f"upper={data['ci_upper']}"
     )
 
     # Probs sum roughly to 1
     total = data["pH"] + data["pD"] + data["pA"]
     assert abs(total - 1.0) < 0.01, f"pH+pD+pA = {total:.4f}"
 
-    assert len(data["scorelines"]) == 6
+    assert len(data["top_scorelines"]) == 6
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +230,34 @@ async def test_market_odds(client: AsyncClient) -> None:
         # 'd' may be null (draws possible in all group matches)
         assert isinstance(entry["h"], int), f"h is not int in {matchkey}"
         assert isinstance(entry["a"], int), f"a is not int in {matchkey}"
+
+
+@pytest.mark.anyio
+async def test_put_market_odds(client: AsyncClient) -> None:
+    """AC10: PUT /market/odds → 200 and save_market called with the correct payload."""
+    # Read current odds structure
+    get_resp = await client.get("/market/odds")
+    assert get_resp.status_code == 200
+    original = get_resp.json()
+
+    # Build modified odds — change first entry h value to sentinel
+    first_key = next(iter(original["odds"]))
+    modified_odds = dict(original["odds"])
+    modified_odds[first_key] = dict(modified_odds[first_key])
+    modified_odds[first_key]["h"] = 9999  # sentinel
+
+    # Patch save_market to avoid writing to the fixtures directory on disk
+    with patch("backend.app.main.save_market") as mock_save:
+        put_resp = await client.put("/market/odds", json={"odds": modified_odds})
+        assert put_resp.status_code == 200, put_resp.text
+        assert put_resp.json()["ok"] is True
+
+        # Verify save_market was called once with the updated odds
+        mock_save.assert_called_once()
+        saved_arg: dict = mock_save.call_args[0][0]
+        assert saved_arg[first_key]["h"] == 9999, (
+            f"save_market not called with sentinel h=9999, got {saved_arg[first_key]['h']}"
+        )
 
 
 # ---------------------------------------------------------------------------

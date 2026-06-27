@@ -117,3 +117,12 @@ def save_tourney(state: dict[str, Any]) -> None:
     write cannot corrupt the existing file.
     """
     _write_json(_data_path("tourney.json"), state)
+
+
+def save_market(data: dict[str, Any]) -> None:
+    """Atomically write *data* to data/market.json.
+
+    Uses a temporary file in the same directory then renames so a failed
+    write cannot corrupt the existing file.
+    """
+    _write_json(_data_path("market.json"), data)
