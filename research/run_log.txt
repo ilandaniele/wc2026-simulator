@@ -1,0 +1,94 @@
+=== bivariate_vs_independent ===
+Loading model...
+Model loaded: 48 teams, 200 draws.
+Running bivariate vs independent comparison (n_per_draw=50)...
+
+Bivariate Poisson (rho=0.05) vs Independent Poisson (rho=0.0)
+=====================================================================================================================
+Match                           pH_indep    pH_biv     d_pH  pD_indep    pD_biv     d_pD  pA_indep    pA_biv     d_pA
+---------------------------------------------------------------------------------------------------------------------
+Algeria vs Austria                0.3198    0.3245  +0.0047    0.2651    0.2671  +0.0020    0.4151    0.4084  -0.0067
+Jordan vs Argentina               0.0469    0.0454  -0.0015    0.1133    0.1091  -0.0042    0.8398    0.8455  +0.0057
+Colombia vs Portugal              0.2787    0.2748  -0.0039    0.2925    0.2995  +0.0070    0.4288    0.4257  -0.0031
+DR Congo vs Uzbekistan            0.4386    0.4272  -0.0114    0.2803    0.2877  +0.0074    0.2811    0.2851  +0.0040
+Panama vs England                 0.0871    0.0825  -0.0046    0.1749    0.1695  -0.0054    0.7380    0.7480  +0.0100
+Croatia vs Ghana                  0.5034    0.5059  +0.0025    0.2471    0.2601  +0.0130    0.2495    0.2340  -0.0155
+---------------------------------------------------------------------------------------------------------------------
+
+Mean absolute delta (pp): 0.006256
+Finding: bivariate correction shifts probability mass toward the draw outcome (positive delta_pD) and away from both win outcomes, consistent with goal-count covariance induced by rho > 0.
+
+Wrote C:\Users\Ilan\Desktop\Proyectos\wc2026-simulator\research\bivariate_vs_independent.json
+
+Wrote C:\Users\Ilan\Desktop\Proyectos\wc2026-simulator\research\bivariate_vs_independent.md
+
+=== halflife_sensitivity (MOCK mode â€” no network) ===
+[RESEARCH_MOCK_DATA=1] Skipping network downloads.
+
+--- half_life=2.0y ---
+  [MOCK] Using data/POST.json (no network call)
+  Running tournament simulation (n=1000, seed=42)...
+
+--- half_life=3.0y ---
+  [MOCK] Using data/POST.json (no network call)
+  Running tournament simulation (n=1000, seed=42)...
+
+--- half_life=5.0y ---
+  [MOCK] Using data/POST.json (no network call)
+  Running tournament simulation (n=1000, seed=42)...
+
+
+Half-Life Sensitivity — Champion Probability Comparison
+======================================================================
+Rank                 HL=2y               HL=3y               HL=5y
+------------------------------------------------------------------
+   1       Brazil (15.30%)     Brazil (15.30%)     Brazil (15.30%)
+   2    Argentina (12.10%)  Argentina (12.10%)  Argentina (12.10%)
+   3     Portugal (11.00%)   Portugal (11.00%)   Portugal (11.00%)
+   4       France (10.50%)     France (10.50%)     France (10.50%)
+   5         Spain (8.40%)       Spain (8.40%)       Spain (8.40%)
+   6       Belgium (6.30%)     Belgium (6.30%)     Belgium (6.30%)
+   7      Colombia (5.60%)    Colombia (5.60%)    Colombia (5.60%)
+   8       England (4.60%)     England (4.60%)     England (4.60%)
+   9   Netherlands (4.00%) Netherlands (4.00%) Netherlands (4.00%)
+  10       Germany (3.80%)     Germany (3.80%)     Germany (3.80%)
+------------------------------------------------------------------
+
+Finding: shorter half-lives weight recent form more heavily,
+shifting probability toward in-form teams at the expense of
+historically dominant sides. Convergence can be assessed by
+comparing the champion dicts across the three half-lives.
+
+Wrote C:\Users\Ilan\Desktop\Proyectos\wc2026-simulator\research\halflife_sensitivity.json
+
+Wrote C:\Users\Ilan\Desktop\Proyectos\wc2026-simulator\research\halflife_sensitivity.md
+
+=== market_edge_today ===
+Loading model and market odds...
+Model: 48 teams, 200 draws.
+Market: 6 matches loaded.
+Running market edge analysis (n_per_draw=50)...
+
+Market Edge Analysis — Model vs Bookmaker (today's 6 matches)
+====================================================================================================
+Match                               mH    mktH    edgH      mD    mktD    edgD      mA    mktA    edgA      Rec
+----------------------------------------------------------------------------------------------------
+Algeria vs Austria              0.3245  0.2051 [+11.94]  0.2671  0.2564 [+1.07]  0.4084  0.5385  -13.01         H
+Jordan vs Argentina             0.0454  0.0265 [+1.89]  0.1091  0.0637 [+4.54]  0.8455  0.9098  -6.43         D
+Colombia vs Portugal            0.2748  0.2855  -1.07   0.2995  0.2498 [+4.97]  0.4257  0.4647  -3.90         D
+DR Congo vs Uzbekistan          0.4272  0.5238  -9.66   0.2877  0.2619 [+2.58]  0.2851  0.2143 [+7.08]        A
+Panama vs England               0.0825  0.0450 [+3.75]  0.1695  0.1049 [+6.46]  0.7480  0.8501  -10.21         D
+Croatia vs Ghana                0.5059  0.5991  -9.32   0.2601  0.2405 [+1.96]  0.2340  0.1604 [+7.36]        A
+----------------------------------------------------------------------------------------------------
+
++EV bets today: 6/6 matches
+  Algeria vs Austria: H side  (model 32.45% vs mkt 20.51%, edge +11.94 pp)
+  Jordan vs Argentina: D side  (model 10.91% vs mkt 6.37%, edge +4.54 pp)
+  Colombia vs Portugal: D side  (model 29.95% vs mkt 24.98%, edge +4.97 pp)
+  DR Congo vs Uzbekistan: A side  (model 28.51% vs mkt 21.43%, edge +7.08 pp)
+  Panama vs England: D side  (model 16.95% vs mkt 10.49%, edge +6.46 pp)
+  Croatia vs Ghana: A side  (model 23.40% vs mkt 16.04%, edge +7.36 pp)
+
+Wrote C:\Users\Ilan\Desktop\Proyectos\wc2026-simulator\research\market_edge_today.json
+
+Wrote C:\Users\Ilan\Desktop\Proyectos\wc2026-simulator\research\market_edge_today.md

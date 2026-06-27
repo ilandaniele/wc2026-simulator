@@ -1,0 +1,18 @@
+{
+  "model_id": "current",
+  "trained_at": "2026-06-27T00:00:00Z",
+  "half_life": 3.0,
+  "n_draws": 400,
+  "top10": [
+    "Argentina",
+    "Portugal",
+    "Brazil",
+    "France",
+    "Spain",
+    "Colombia",
+    "Belgium",
+    "Germany",
+    "Netherlands",
+    "England"
+  ]
+}
