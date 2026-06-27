@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, Suspense, lazy } from 'react'
 import './App.css'
 import {
   getInitialTheme,
@@ -7,6 +7,25 @@ import {
   toggleTheme,
   type Theme,
 } from './lib/theme'
+
+// ---------------------------------------------------------------------------
+// Lazy-loaded tab components (code-split per tab)
+// ---------------------------------------------------------------------------
+const CupTab = lazy(() =>
+  import('./components/CupTab').then((m) => ({ default: m.CupTab })),
+)
+const HoyTab = lazy(() =>
+  import('./components/HoyTab').then((m) => ({ default: m.HoyTab })),
+)
+const MercadoTab = lazy(() =>
+  import('./components/MercadoTab').then((m) => ({ default: m.MercadoTab })),
+)
+const EnfrentamientoTab = lazy(() =>
+  import('./components/EnfrentamientoTab').then((m) => ({ default: m.EnfrentamientoTab })),
+)
+const FuerzaTab = lazy(() =>
+  import('./components/FuerzaTab').then((m) => ({ default: m.FuerzaTab })),
+)
 
 // ---------------------------------------------------------------------------
 // Tab definitions
@@ -58,6 +77,17 @@ function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
     >
       {theme === 'dark' ? '☀' : '🌙'}
     </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tab content fallback
+// ---------------------------------------------------------------------------
+function TabFallback() {
+  return (
+    <div aria-busy="true" style={{ padding: '2rem', color: 'var(--dim)', fontSize: '0.875rem' }}>
+      Cargando…
+    </div>
   )
 }
 
@@ -114,23 +144,67 @@ export default function App() {
         ))}
       </nav>
 
-      {/* Tab panels — placeholders for W5 */}
+      {/* Tab panels */}
       <main className="tab-content">
-        {TABS.map((tab) => (
-          <div
-            key={tab.id}
-            role="tabpanel"
-            id={`panel-${tab.id}`}
-            aria-labelledby={`tab-${tab.id}`}
-            data-testid={`tab-${tab.id}`}
-            hidden={activeTab !== tab.id}
-          >
-            {/* W5 will replace this placeholder */}
-            <p style={{ color: 'var(--dim)', fontSize: '0.875rem' }}>
-              {tab.label} — contenido pendiente (W5)
-            </p>
-          </div>
-        ))}
+        <div
+          role="tabpanel"
+          id="panel-cup"
+          aria-labelledby="tab-cup"
+          data-testid="tab-cup"
+          hidden={activeTab !== 'cup'}
+        >
+          <Suspense fallback={<TabFallback />}>
+            {activeTab === 'cup' && <CupTab />}
+          </Suspense>
+        </div>
+
+        <div
+          role="tabpanel"
+          id="panel-hoy"
+          aria-labelledby="tab-hoy"
+          data-testid="tab-hoy"
+          hidden={activeTab !== 'hoy'}
+        >
+          <Suspense fallback={<TabFallback />}>
+            {activeTab === 'hoy' && <HoyTab />}
+          </Suspense>
+        </div>
+
+        <div
+          role="tabpanel"
+          id="panel-mercado"
+          aria-labelledby="tab-mercado"
+          data-testid="tab-mercado"
+          hidden={activeTab !== 'mercado'}
+        >
+          <Suspense fallback={<TabFallback />}>
+            {activeTab === 'mercado' && <MercadoTab />}
+          </Suspense>
+        </div>
+
+        <div
+          role="tabpanel"
+          id="panel-enfrentamiento"
+          aria-labelledby="tab-enfrentamiento"
+          data-testid="tab-enfrentamiento"
+          hidden={activeTab !== 'enfrentamiento'}
+        >
+          <Suspense fallback={<TabFallback />}>
+            {activeTab === 'enfrentamiento' && <EnfrentamientoTab />}
+          </Suspense>
+        </div>
+
+        <div
+          role="tabpanel"
+          id="panel-fuerza"
+          aria-labelledby="tab-fuerza"
+          data-testid="tab-fuerza"
+          hidden={activeTab !== 'fuerza'}
+        >
+          <Suspense fallback={<TabFallback />}>
+            {activeTab === 'fuerza' && <FuerzaTab />}
+          </Suspense>
+        </div>
       </main>
     </div>
   )
