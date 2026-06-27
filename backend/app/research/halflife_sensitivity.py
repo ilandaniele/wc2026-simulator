@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 from backend.app.model.store import load_post, load_tourney
 from backend.app.simulation.engine import run_tournament
 
@@ -47,6 +46,7 @@ _TOP10 = 10
 # Post loader with mock support
 # ---------------------------------------------------------------------------
 
+
 def _load_post_for_hl(half_life: float, mock: bool) -> dict[str, Any]:
     """Load or retrain posterior for the given half-life.
 
@@ -58,6 +58,7 @@ def _load_post_for_hl(half_life: float, mock: bool) -> dict[str, Any]:
 
     # Live: import here to avoid eager import (slow network call on import)
     from backend.app.model.trainer import retrain  # noqa: PLC0415
+
     retrain(half_life=half_life, n_draws=_N_DRAWS_RESEARCH)
     return load_post("current")
 
@@ -65,6 +66,7 @@ def _load_post_for_hl(half_life: float, mock: bool) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Main research function
 # ---------------------------------------------------------------------------
+
 
 def run_halflife_research(mock: bool = False) -> dict[str, Any]:
     """Run half-life sensitivity analysis.
@@ -94,7 +96,9 @@ def run_halflife_research(mock: bool = False) -> dict[str, Any]:
         if mock:
             print("  [MOCK] Using data/POST.json (no network call)")  # crew-debug-ok
         else:
-            print(f"  Retraining model (half_life={hl}, n_draws={_N_DRAWS_RESEARCH})...")  # crew-debug-ok
+            print(
+                f"  Retraining model (half_life={hl}, n_draws={_N_DRAWS_RESEARCH})..."
+            )  # crew-debug-ok
 
         post = _load_post_for_hl(hl, mock)
         teams: list[str] = post["teams"]
@@ -110,15 +114,13 @@ def run_halflife_research(mock: bool = False) -> dict[str, Any]:
             seed=_SEED,
         )
 
-        champ_dict: dict[str, float] = {
-            t: round(tally[t]["champ"] / _N_SIM, 6) for t in teams
-        }
+        champ_dict: dict[str, float] = {t: round(tally[t]["champ"] / _N_SIM, 6) for t in teams}
 
         # Top-10 by champion probability
         top10 = sorted(champ_dict, key=lambda t: champ_dict[t], reverse=True)[:_TOP10]
 
         # Strength ranking: mean att + def across all draws
-        att_arr = np.array(post["att"])   # n_teams x n_draws
+        att_arr = np.array(post["att"])  # n_teams x n_draws
         def_arr = np.array(post["deff"])
         scores = att_arr.mean(axis=1) + def_arr.mean(axis=1)
         order = np.argsort(-scores)

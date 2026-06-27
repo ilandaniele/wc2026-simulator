@@ -9,7 +9,6 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ---------------------------------------------------------------------------
 # Common error envelope — {error: {code, detail}}
 # ---------------------------------------------------------------------------

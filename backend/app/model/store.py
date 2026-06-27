@@ -30,6 +30,7 @@ def _data_path(filename: str) -> Path:
 # Readers
 # ---------------------------------------------------------------------------
 
+
 def load_post(model_id: str = "current") -> dict[str, Any]:
     """Load posterior samples.
 
@@ -60,8 +61,16 @@ _DEFAULT_META: dict[str, Any] = {
     "n_draws": 400,
     "trained_at": "2026-06-27T00:00:00Z",
     "top10": [
-        "Argentina", "Portugal", "Brazil", "France", "Spain",
-        "Colombia", "Belgium", "Germany", "Netherlands", "England",
+        "Argentina",
+        "Portugal",
+        "Brazil",
+        "France",
+        "Spain",
+        "Colombia",
+        "Belgium",
+        "Germany",
+        "Netherlands",
+        "England",
     ],
 }
 
@@ -99,6 +108,7 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Writers
 # ---------------------------------------------------------------------------
+
 
 def save_tourney(state: dict[str, Any]) -> None:
     """Atomically write *state* to data/tourney.json.

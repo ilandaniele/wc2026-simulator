@@ -86,15 +86,14 @@ async def rate_limit_exceeded_handler(
 ) -> JSONResponse:
     """Custom 429 handler that adds Retry-After header (required by AC11)."""
     # Extract retry seconds from the limit string e.g. "1 per 600 second"
+    import time  # noqa: PLC0415
+
     retry_after = 600
     try:
-        limit_str = str(exc.detail) if hasattr(exc, "detail") else ""
-        # slowapi stores the limit as an attribute
         if hasattr(exc, "limit") and hasattr(exc.limit, "reset_at"):
-            import time  # noqa: PLC0415
             retry_after = max(0, int(exc.limit.reset_at - time.time()))
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        _ = _e  # intentional fallback to default 600s
 
     return JSONResponse(
         status_code=429,

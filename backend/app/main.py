@@ -1,41 +1,32 @@
-"""FastAPI application entry point — full endpoint suite (W2 + W3).
+﻿"""FastAPI application entry point â€” full endpoint suite (W2 + W3).
 
 W2 endpoints (unchanged):
-  GET  /health                — liveness probe
-  GET  /model/status          — model metadata (AC2)
-  GET  /model/strength        — ranked team strength list (AC3)
-  GET  /tourney/state         — current tournament standings (AC4)
-  POST /simulate/tournament   — Monte Carlo tournament sim (AC6, AC13)
+  GET  /health                â€” liveness probe
+  GET  /model/status          â€” model metadata (AC2)
+  GET  /model/strength        â€” ranked team strength list (AC3)
+  GET  /tourney/state         â€” current tournament standings (AC4)
+  POST /simulate/tournament   â€” Monte Carlo tournament sim (AC6, AC13)
 
 W3 endpoints (new):
-  GET  /teams                 — list 48 team names (AC1)
-  PUT  /tourney/state         — update tournament standings (AC5)
-  POST /simulate/match        — single-match prob (AC7, AC15)
-  POST /simulate/modal        — score distribution (AC8)
-  POST /simulate/h2h          — head-to-head CI (AC9)
-  GET  /market/odds           — today's bookmaker odds (AC10)
-  POST /model/retrain         — retrain model, rate-limited 1/600s (AC11, AC12)
+  GET  /teams                 â€” list 48 team names (AC1)
+  PUT  /tourney/state         â€” update tournament standings (AC5)
+  POST /simulate/match        â€” single-match prob (AC7, AC15)
+  POST /simulate/modal        â€” score distribution (AC8)
+  POST /simulate/h2h          â€” head-to-head CI (AC9)
+  GET  /market/odds           â€” today's bookmaker odds (AC10)
+  POST /model/retrain         â€” retrain model, rate-limited 1/600s (AC11, AC12)
 """
 
 from __future__ import annotations
 
 import asyncio
 import collections
-import datetime as dt
 import math
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError
-from slowapi import Limiter
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
-
 from backend.app.errors import (
     generic_exception_handler,
     pydantic_validation_error_handler,
@@ -45,7 +36,6 @@ from backend.app.errors import (
 )
 from backend.app.model.store import load_market, load_meta, load_post, load_tourney, save_tourney
 from backend.app.schemas import (
-    ErrorResponse,
     RetrainRequest,
     SimH2HRequest,
     SimMatchRequest,
@@ -57,18 +47,25 @@ from backend.app.simulation.engine import (
     compute_strength,
     lams,
     mul,
-    next_rand,
     pois,
     run_tournament,
 )
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 # ---------------------------------------------------------------------------
-# CORS allowlist — localhost only (loopback tool, never internet-exposed)
+# CORS allowlist â€” localhost only (loopback tool, never internet-exposed)
 # ---------------------------------------------------------------------------
 
 _ALLOWED_ORIGINS: list[str] = [
-    "http://localhost:5173",   # Vite dev server
-    "http://localhost:4173",   # Vite preview
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:4173",  # Vite preview
 ]
 
 # ---------------------------------------------------------------------------
@@ -82,9 +79,10 @@ limiter = Limiter(key_func=get_remote_address)
 # Application lifespan
 # ---------------------------------------------------------------------------
 
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan — no external connections to open/close."""
+    """Application lifespan â€” no external connections to open/close."""
     yield
 
 
@@ -112,7 +110,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# Exception handlers — ordered from most-specific to least-specific
+# Exception handlers â€” ordered from most-specific to least-specific
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, request_validation_error_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ValidationError, pydantic_validation_error_handler)  # type: ignore[arg-type]
@@ -122,6 +120,7 @@ app.add_exception_handler(Exception, generic_exception_handler)  # type: ignore[
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _validate_teams(post: dict[str, Any], *team_names: str) -> None:
     """Raise a JSON 400 error via HTTPException lookalike for unknown team names.
@@ -211,19 +210,18 @@ def _score_distribution(
         lh, la = lams(home_idx, away_idx, d, post, adja, adjd)
         # Independent Poisson PMF (bivariate adjustment small, use expected lh/la)
         for h_g in range(max_goals + 1):
-            p_h = math.exp(-lh) * (lh ** h_g) / math.factorial(h_g)
+            p_h = math.exp(-lh) * (lh**h_g) / math.factorial(h_g)
             if p_h < 1e-6:
                 continue
             for a_g in range(max_goals + 1):
-                p_a = math.exp(-la) * (la ** a_g) / math.factorial(a_g)
+                p_a = math.exp(-la) * (la**a_g) / math.factorial(a_g)
                 if p_a < 1e-6:
                     continue
                 score_counts[(h_g, a_g)] += p_h * p_a / n_draws
 
     sorted_scores = sorted(score_counts.items(), key=lambda x: -x[1])
     return [
-        {"score": f"{h}-{a}", "prob": round(prob, 6)}
-        for (h, a), prob in sorted_scores[:top_k]
+        {"score": f"{h}-{a}", "prob": round(prob, 6)} for (h, a), prob in sorted_scores[:top_k]
     ]
 
 
@@ -257,11 +255,11 @@ def _h2h_ci(
         lh, la = lams(home_idx, away_idx, d, post, adja, adjd)
         ph_d = pd_d = pa_d = 0.0
         for h_g in range(max_goals + 1):
-            p_h = math.exp(-lh) * (lh ** h_g) / math.factorial(h_g)
+            p_h = math.exp(-lh) * (lh**h_g) / math.factorial(h_g)
             if p_h < 1e-8:
                 continue
             for a_g in range(max_goals + 1):
-                p_a = math.exp(-la) * (la ** a_g) / math.factorial(a_g)
+                p_a = math.exp(-la) * (la**a_g) / math.factorial(a_g)
                 p = p_h * p_a
                 if h_g > a_g:
                     ph_d += p
@@ -292,15 +290,17 @@ def _h2h_ci(
 # Health endpoint
 # ---------------------------------------------------------------------------
 
+
 @app.get("/health", tags=["meta"])
 async def health() -> dict[str, str]:
-    """Liveness probe — returns 200 when the process is up."""
+    """Liveness probe â€” returns 200 when the process is up."""
     return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
 # GET /teams  (AC1)
 # ---------------------------------------------------------------------------
+
 
 class TeamsResponse(BaseModel):
     teams: list[str]
@@ -319,6 +319,7 @@ async def get_teams() -> TeamsResponse:
 # ---------------------------------------------------------------------------
 # GET /model/status  (AC2)
 # ---------------------------------------------------------------------------
+
 
 class ModelStatus(BaseModel):
     model_id: str
@@ -341,6 +342,7 @@ async def model_status() -> ModelStatus:
 # ---------------------------------------------------------------------------
 # GET /model/strength  (AC3)
 # ---------------------------------------------------------------------------
+
 
 class TeamStrength(BaseModel):
     team: str
@@ -375,6 +377,7 @@ async def model_strength() -> StrengthResponse:
 # GET /tourney/state  (AC4)
 # ---------------------------------------------------------------------------
 
+
 class TourneyStateResponse(BaseModel):
     groups: dict[str, list[str]]
     state: dict[str, Any]
@@ -395,6 +398,7 @@ async def tourney_state() -> TourneyStateResponse:
 # PUT /tourney/state  (AC5)
 # ---------------------------------------------------------------------------
 
+
 @app.put("/tourney/state", response_model=dict, tags=["tourney"])
 async def put_tourney_state(body: TourneyStateBody) -> dict[str, bool]:
     """Replace the current tournament state document atomically."""
@@ -409,10 +413,11 @@ async def put_tourney_state(body: TourneyStateBody) -> dict[str, bool]:
 # POST /simulate/tournament  (AC6, AC13)
 # ---------------------------------------------------------------------------
 
+
 class TeamResult(BaseModel):
     team: str
     group: str
-    grpW: float
+    grpW: float  # noqa: N815
     ko: float
     r16: float
     qf: float
@@ -476,10 +481,11 @@ async def simulate_tournament(body: SimTournamentRequest) -> SimTournamentRespon
 # POST /simulate/match  (AC7, AC15)
 # ---------------------------------------------------------------------------
 
+
 class SimMatchResponse(BaseModel):
-    pH: float
-    pD: float
-    pA: float
+    pH: float  # noqa: N815
+    pD: float  # noqa: N815
+    pA: float  # noqa: N815
     fair_odd_home: float | None = None
     fair_odd_away: float | None = None
 
@@ -506,12 +512,15 @@ async def simulate_match(body: SimMatchRequest) -> SimMatchResponse | JSONRespon
     fair_odd_home = round(1.0 / ph, 3) if ph > 0 else None
     fair_odd_away = round(1.0 / pa, 3) if pa > 0 else None
 
-    return SimMatchResponse(pH=ph, pD=pd, pA=pa, fair_odd_home=fair_odd_home, fair_odd_away=fair_odd_away)
+    return SimMatchResponse(
+        pH=ph, pD=pd, pA=pa, fair_odd_home=fair_odd_home, fair_odd_away=fair_odd_away
+    )
 
 
 # ---------------------------------------------------------------------------
 # POST /simulate/modal  (AC8)
 # ---------------------------------------------------------------------------
+
 
 class ScoreLine(BaseModel):
     score: str
@@ -548,10 +557,11 @@ async def simulate_modal(body: SimModalRequest) -> SimModalResponse | JSONRespon
 # POST /simulate/h2h  (AC9)
 # ---------------------------------------------------------------------------
 
+
 class SimH2HResponse(BaseModel):
-    pH: float
-    pD: float
-    pA: float
+    pH: float  # noqa: N815
+    pD: float  # noqa: N815
+    pA: float  # noqa: N815
     ci_lo: float
     ci_med: float
     ci_hi: float
@@ -594,6 +604,7 @@ async def simulate_h2h(body: SimH2HRequest) -> SimH2HResponse | JSONResponse:
 # GET /market/odds  (AC10)
 # ---------------------------------------------------------------------------
 
+
 class OddsEntry(BaseModel):
     h: int
     d: int | None = None
@@ -619,6 +630,7 @@ async def market_odds() -> MarketOddsResponse:
 # POST /model/retrain  (AC11, AC12)
 # Rate-limited: 1 request per 600 seconds (10 minutes)
 # ---------------------------------------------------------------------------
+
 
 class RetrainResponse(BaseModel):
     ok: bool

@@ -39,6 +39,7 @@ TSLOTS: list[str] = ["E", "I", "A", "L", "D", "G", "B", "K"]
 # PRNG — xorshift/murmur hash, exact JS Math.imul replication
 # ---------------------------------------------------------------------------
 
+
 def _to_u32(x: int) -> int:
     """Mask to 32-bit unsigned integer range [0, 2^32)."""
     return x & 0xFFFFFFFF
@@ -105,6 +106,7 @@ def next_rand(state: list[int]) -> float:
 # Poisson draw — inverse transform (same algorithm as JS)
 # ---------------------------------------------------------------------------
 
+
 def pois(lam: float, state: list[Any]) -> int:
     """Draw from Poisson(lam) via inverse CDF — matches JS ``pois(l, r)``."""
     if lam <= 0:
@@ -123,6 +125,7 @@ def pois(lam: float, state: list[Any]) -> int:
 # ---------------------------------------------------------------------------
 # Lambda computation
 # ---------------------------------------------------------------------------
+
 
 def lams(
     hi: int,
@@ -147,6 +150,7 @@ def lams(
 # ---------------------------------------------------------------------------
 # Single-match simulation
 # ---------------------------------------------------------------------------
+
 
 def play(
     hi: int,
@@ -195,10 +199,14 @@ def play(
         y += pois(la * 0.36, state)
         if x == y:
             # Penalty kick tiebreak: strength-weighted coin
-            e = 0.5 + (
-                (post["att"][hi][draw_idx] + post["deff"][hi][draw_idx])
-                - (post["att"][ai][draw_idx] + post["deff"][ai][draw_idx])
-            ) * 0.15
+            e = (
+                0.5
+                + (
+                    (post["att"][hi][draw_idx] + post["deff"][hi][draw_idx])
+                    - (post["att"][ai][draw_idx] + post["deff"][ai][draw_idx])
+                )
+                * 0.15
+            )
             e = max(0.3, min(0.7, e))
             winner = 0 if next_rand(state) < e else 1
             return x, y, winner
@@ -211,6 +219,7 @@ def play(
 # Annex C third-place allocation
 # ---------------------------------------------------------------------------
 
+
 def assign_thirds(groups_qualified: set[str]) -> dict[str, str] | None:
     """Backtracking assignment of 8 third-place groups to bracket slots.
 
@@ -221,10 +230,8 @@ def assign_thirds(groups_qualified: set[str]) -> dict[str, str] | None:
 
     Returns a dict mapping slot letter → group letter, or None if impossible.
     """
-    Q = groups_qualified
-
     def slot_options(slot: str) -> list[str]:
-        return [g for g in TALLOW[slot] if g in Q]
+        return [g for g in TALLOW[slot] if g in groups_qualified]
 
     # Sort slots ascending by number of eligible groups (most constrained first)
     slots = sorted(TSLOTS, key=lambda s: len(slot_options(s)))
@@ -237,7 +244,7 @@ def assign_thirds(groups_qualified: set[str]) -> dict[str, str] | None:
             return True
         s = slots[i]
         for g in TALLOW[s]:
-            if g in Q and g not in used:
+            if g in groups_qualified and g not in used:
                 used[g] = 1
                 result[s] = g
                 if bt(i + 1):
@@ -251,6 +258,7 @@ def assign_thirds(groups_qualified: set[str]) -> dict[str, str] | None:
 # ---------------------------------------------------------------------------
 # Strength computation (mirrors JS computeStrength)
 # ---------------------------------------------------------------------------
+
 
 def compute_strength(
     post: dict[str, Any],
@@ -273,6 +281,7 @@ def compute_strength(
 # ---------------------------------------------------------------------------
 # Full tournament Monte Carlo
 # ---------------------------------------------------------------------------
+
 
 def run_tournament(
     n: int,
@@ -309,8 +318,7 @@ def run_tournament(
 
     # Tally initialisation
     tally: dict[str, dict[str, int]] = {
-        t: {"ko": 0, "r16": 0, "qf": 0, "sf": 0, "final": 0, "champ": 0, "grpW": 0}
-        for t in teams
+        t: {"ko": 0, "r16": 0, "qf": 0, "sf": 0, "final": 0, "champ": 0, "grpW": 0} for t in teams
     }
 
     # Single PRNG state for whole simulation (mirrors JS ``const r = mul(0xC0FFEE)``)
@@ -385,21 +393,25 @@ def run_tournament(
             )
         )
         top8 = thirds[:8]
-        Q = {x["g"] for x in top8}
+        groups_q = {x["g"] for x in top8}
 
-        assign = assign_thirds(Q)
+        assign = assign_thirds(groups_q)
 
         w_match_map: dict[int, str] = {}
 
-        def wmatch(team_a: str, team_b: str) -> str:
+        def wmatch(team_a: str, team_b: str, _d: int = d) -> str:  # noqa: B023
             """Play a knockout match and return the winner's name."""
-            _, _, winner = play(ti[team_a], ti[team_b], d, rng, True, rho, post, adja, adjd)
+            _, _, winner = play(ti[team_a], ti[team_b], _d, rng, True, rho, post, adja, adjd)
             return team_a if winner == 0 else team_b
 
         if assign:
-            def t_slot(slot: str) -> str:
+            def t_slot(
+                slot: str,
+                _th: dict[str, str] = th,
+                _a: dict[str, str] = assign,
+            ) -> str:
                 """Third-place team assigned to *slot*."""
-                return th[assign[slot]]
+                return _th[_a[slot]]
 
             # R32 — 16 matches
             w_match_map[73] = wmatch(ru["A"], ru["B"])
@@ -421,14 +433,38 @@ def run_tournament(
 
             # All 32 R32 participants
             field = [
-                ru["A"], ru["B"], wn["E"], t_slot("E"),
-                wn["F"], ru["C"], wn["C"], ru["F"],
-                wn["I"], t_slot("I"), ru["E"], ru["I"],
-                wn["A"], t_slot("A"), wn["L"], t_slot("L"),
-                wn["D"], t_slot("D"), wn["G"], t_slot("G"),
-                ru["K"], ru["L"], wn["H"], ru["J"],
-                wn["B"], t_slot("B"), wn["J"], ru["H"],
-                wn["K"], t_slot("K"), ru["D"], ru["G"],
+                ru["A"],
+                ru["B"],
+                wn["E"],
+                t_slot("E"),
+                wn["F"],
+                ru["C"],
+                wn["C"],
+                ru["F"],
+                wn["I"],
+                t_slot("I"),
+                ru["E"],
+                ru["I"],
+                wn["A"],
+                t_slot("A"),
+                wn["L"],
+                t_slot("L"),
+                wn["D"],
+                t_slot("D"),
+                wn["G"],
+                t_slot("G"),
+                ru["K"],
+                ru["L"],
+                wn["H"],
+                ru["J"],
+                wn["B"],
+                t_slot("B"),
+                wn["J"],
+                ru["H"],
+                wn["K"],
+                t_slot("K"),
+                ru["D"],
+                ru["G"],
             ]
             for team in field:
                 tally[team]["ko"] += 1
@@ -467,11 +503,7 @@ def run_tournament(
 
         else:
             # Fallback: strength-seeded bracket (rare — assign_thirds returns None)
-            field = (
-                [wn[g] for g in gl]
-                + [ru[g] for g in gl]
-                + [x["t"] for x in top8]
-            )
+            field = [wn[g] for g in gl] + [ru[g] for g in gl] + [x["t"] for x in top8]
             for team in field:
                 tally[team]["ko"] += 1
 
@@ -485,9 +517,7 @@ def run_tournament(
                 for i in range(half):
                     team_a = current_round[i]
                     team_b = current_round[len(current_round) - 1 - i]
-                    _, _, w = play(
-                        ti[team_a], ti[team_b], d, rng, True, rho, post, adja, adjd
-                    )
+                    _, _, w = play(ti[team_a], ti[team_b], d, rng, True, rho, post, adja, adjd)
                     next_round.append(team_a if w == 0 else team_b)
                 for team in next_round:
                     tally[team][stages[stage_idx]] += 1

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from backend.app.research.market_edge_today import (
     TODAY_MATCHES,
     am2prob,
@@ -21,9 +20,18 @@ from backend.app.research.market_edge_today import (
 # ---------------------------------------------------------------------------
 
 _TEAMS = [
-    "Algeria", "Argentina", "Austria", "Colombia", "Croatia",
-    "DR Congo", "England", "Ghana", "Jordan", "Panama",
-    "Portugal", "Uzbekistan",
+    "Algeria",
+    "Argentina",
+    "Austria",
+    "Colombia",
+    "Croatia",
+    "DR Congo",
+    "England",
+    "Ghana",
+    "Jordan",
+    "Panama",
+    "Portugal",
+    "Uzbekistan",
 ]
 _N = len(_TEAMS)
 _N_DRAWS = 4
@@ -54,6 +62,7 @@ def _make_post() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestAm2Prob:
     def test_negative_american(self) -> None:
@@ -100,9 +109,15 @@ class TestRunMarketEdge:
     def test_required_fields(self, entries: list[dict[str, Any]]) -> None:
         required = {
             "match",
-            "model_pH", "model_pD", "model_pA",
-            "market_pH", "market_pD", "market_pA",
-            "edge_H_pp", "edge_D_pp", "edge_A_pp",
+            "model_pH",
+            "model_pD",
+            "model_pA",
+            "market_pH",
+            "market_pD",
+            "market_pA",
+            "edge_H_pp",
+            "edge_D_pp",
+            "edge_A_pp",
             "recommended",
         }
         for e in entries:
@@ -116,14 +131,16 @@ class TestRunMarketEdge:
     def test_model_probs_sum_to_one(self, entries: list[dict[str, Any]]) -> None:
         for e in entries:
             total = e["model_pH"] + e["model_pD"] + e["model_pA"]
-            assert math.isclose(total, 1.0, abs_tol=0.02), \
+            assert math.isclose(total, 1.0, abs_tol=0.02), (
                 f"{e['match']}: model probs sum to {total}"
+            )
 
     def test_market_probs_sum_to_one(self, entries: list[dict[str, Any]]) -> None:
         for e in entries:
             total = e["market_pH"] + e["market_pD"] + e["market_pA"]
-            assert math.isclose(total, 1.0, abs_tol=0.02), \
+            assert math.isclose(total, 1.0, abs_tol=0.02), (
                 f"{e['match']}: market probs sum to {total}"
+            )
 
     def test_edge_consistency(self, entries: list[dict[str, Any]]) -> None:
         for e in entries:
@@ -137,8 +154,7 @@ class TestRunMarketEdge:
     def test_recommended_is_valid(self, entries: list[dict[str, Any]]) -> None:
         valid = {"H", "D", "A", "no_value"}
         for e in entries:
-            assert e["recommended"] in valid, \
-                f"Invalid recommended: {e['recommended']}"
+            assert e["recommended"] in valid, f"Invalid recommended: {e['recommended']}"
 
     def test_no_value_when_all_negative(self, entries: list[dict[str, Any]]) -> None:
         """If all edges are negative the recommended must be 'no_value'."""
@@ -171,16 +187,22 @@ class TestMarketEdgeJsonOutput:
         assert len(data) == 6
 
         required = {
-            "match", "model_pH", "model_pD", "model_pA",
-            "market_pH", "market_pD", "market_pA",
-            "edge_H_pp", "edge_D_pp", "edge_A_pp", "recommended",
+            "match",
+            "model_pH",
+            "model_pD",
+            "model_pA",
+            "market_pH",
+            "market_pD",
+            "market_pA",
+            "edge_H_pp",
+            "edge_D_pp",
+            "edge_A_pp",
+            "recommended",
         }
         for entry in data:
             assert required.issubset(entry.keys())
 
-    def test_md_written(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_md_written(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         post = _make_post()
         import backend.app.research.market_edge_today as mod  # noqa: PLC0415
 

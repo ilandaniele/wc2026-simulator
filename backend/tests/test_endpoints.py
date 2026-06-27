@@ -6,14 +6,11 @@ Uses the ASGI test transport so no server needs to run.
 
 from __future__ import annotations
 
-import json
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-
 from backend.app.main import app
+from httpx import ASGITransport, AsyncClient
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -325,9 +322,7 @@ async def test_cors_allowed(client: AsyncClient) -> None:
     )
     # FastAPI returns 200 for preflight when origin is allowed
     acao = resp.headers.get("access-control-allow-origin", "")
-    assert acao == "http://localhost:5173", (
-        f"Expected ACAO=http://localhost:5173, got '{acao}'"
-    )
+    assert acao == "http://localhost:5173", f"Expected ACAO=http://localhost:5173, got '{acao}'"
 
 
 @pytest.mark.anyio
@@ -341,9 +336,7 @@ async def test_cors_blocked(client: AsyncClient) -> None:
         },
     )
     acao = resp.headers.get("access-control-allow-origin", "")
-    assert acao == "" or acao is None, (
-        f"Expected no ACAO header for evil.com, got '{acao}'"
-    )
+    assert acao == "" or acao is None, f"Expected no ACAO header for evil.com, got '{acao}'"
 
 
 # ---------------------------------------------------------------------------

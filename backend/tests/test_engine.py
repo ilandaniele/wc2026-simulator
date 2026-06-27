@@ -2,26 +2,20 @@
 
 from __future__ import annotations
 
-import json
-import math
-from pathlib import Path
-
 import numpy as np
 import pytest
-from httpx import ASGITransport, AsyncClient
-
 from backend.app.main import app
-from backend.app.model.store import load_meta, load_post, load_tourney
+from backend.app.model.store import load_post, load_tourney
 from backend.app.simulation.engine import (
     TALLOW,
     TSLOTS,
     assign_thirds,
-    compute_strength,
     mul,
     next_rand,
     pois,
     run_tournament,
 )
+from httpx import ASGITransport, AsyncClient
 
 SEED = 12648430  # 0xC0FFEE in decimal
 
@@ -29,6 +23,7 @@ SEED = 12648430  # 0xC0FFEE in decimal
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def post() -> dict:
@@ -48,15 +43,14 @@ def zero_adj(post):  # type: ignore[no-untyped-def]
 
 @pytest.fixture
 async def client() -> AsyncClient:  # type: ignore[misc]
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
 
 # ---------------------------------------------------------------------------
 # PRNG unit tests
 # ---------------------------------------------------------------------------
+
 
 def test_prng_deterministic() -> None:
     """Same seed → identical sequence of floats."""
@@ -88,6 +82,7 @@ def test_prng_different_seeds() -> None:
 # Poisson draw tests
 # ---------------------------------------------------------------------------
 
+
 def test_pois_zero_lambda() -> None:
     state = mul(SEED)
     assert pois(0.0, state) == 0
@@ -106,10 +101,11 @@ def test_pois_mean() -> None:
 # assign_thirds tests
 # ---------------------------------------------------------------------------
 
+
 def test_assign_thirds_all_groups() -> None:
     """With all 12 groups qualified, assignment should succeed."""
-    Q = set("ABCDEFGHIJKL")
-    result = assign_thirds(Q)
+    qualified = set("ABCDEFGHIJKL")
+    result = assign_thirds(qualified)
     assert result is not None
     assert set(result.keys()) == set(TSLOTS)
     # Every assigned group must be in TALLOW[slot]
@@ -119,8 +115,8 @@ def test_assign_thirds_all_groups() -> None:
 
 def test_assign_thirds_specific() -> None:
     """A specific set of 8 qualified third-place groups returns a valid assignment."""
-    Q = {"A", "B", "C", "D", "E", "F", "G", "H"}
-    result = assign_thirds(Q)
+    qualified = {"A", "B", "C", "D", "E", "F", "G", "H"}
+    result = assign_thirds(qualified)
     assert result is not None
     used_groups = list(result.values())
     # No group used twice
@@ -129,8 +125,8 @@ def test_assign_thirds_specific() -> None:
 
 def test_assign_thirds_no_duplicates() -> None:
     """Assigned groups are all distinct."""
-    Q = {"C", "D", "E", "F", "G", "H", "I", "J"}
-    result = assign_thirds(Q)
+    qualified = {"C", "D", "E", "F", "G", "H", "I", "J"}
+    result = assign_thirds(qualified)
     if result is not None:
         values = list(result.values())
         assert len(values) == len(set(values))
@@ -139,6 +135,7 @@ def test_assign_thirds_no_duplicates() -> None:
 # ---------------------------------------------------------------------------
 # AC26 — determinism: runT twice with same seed → identical tally
 # ---------------------------------------------------------------------------
+
 
 def test_determinism_runt(post: dict, tourney: dict, zero_adj) -> None:
     """AC26: Two calls to run_tournament with the same seed return identical results."""
@@ -169,6 +166,7 @@ def test_determinism_runt(post: dict, tourney: dict, zero_adj) -> None:
 # ---------------------------------------------------------------------------
 # AC27 — exactly 32 teams with ko > 0 after 6000 sims
 # ---------------------------------------------------------------------------
+
 
 def test_32_teams_ko(post: dict, tourney: dict, zero_adj) -> None:
     """AC27: In each simulated tournament exactly 32 teams advance to the R32.
@@ -203,6 +201,7 @@ def test_32_teams_ko(post: dict, tourney: dict, zero_adj) -> None:
 # AC13 — HTTP endpoint determinism: POST /simulate/tournament twice → same body
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
 async def test_determinism_endpoint(client: AsyncClient) -> None:
     """AC13: Two POST /simulate/tournament with seed=12648430 return identical results."""
@@ -226,6 +225,7 @@ async def test_determinism_endpoint(client: AsyncClient) -> None:
 # AC2 — GET /model/status
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
 async def test_model_status(client: AsyncClient) -> None:
     """AC2: GET /model/status returns 200 with required fields."""
@@ -243,6 +243,7 @@ async def test_model_status(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # AC3 — GET /model/strength
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.anyio
 async def test_model_strength(client: AsyncClient) -> None:
@@ -268,6 +269,7 @@ async def test_model_strength(client: AsyncClient) -> None:
 # AC4 — GET /tourney/state
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
 async def test_tourney_state(client: AsyncClient) -> None:
     """AC4: GET /tourney/state returns 12 groups, each with 4 teams."""
@@ -280,9 +282,7 @@ async def test_tourney_state(client: AsyncClient) -> None:
 
     # Must have keys A through L
     expected_keys = set("ABCDEFGHIJKL")
-    assert group_keys == expected_keys, (
-        f"Expected group keys A-L, got {sorted(group_keys)}"
-    )
+    assert group_keys == expected_keys, f"Expected group keys A-L, got {sorted(group_keys)}"
 
     # Each group has exactly 4 teams
     for g, teams in groups.items():
@@ -298,14 +298,13 @@ async def test_tourney_state(client: AsyncClient) -> None:
         ("Panama", "England"),
         ("Croatia", "Ghana"),
     }
-    assert expected_remaining == remaining_pairs, (
-        f"Remaining mismatch: {remaining_pairs}"
-    )
+    assert expected_remaining == remaining_pairs, f"Remaining mismatch: {remaining_pairs}"
 
 
 # ---------------------------------------------------------------------------
 # Bonus: champ probabilities sum to ~1.0
 # ---------------------------------------------------------------------------
+
 
 def test_champ_sum(post: dict, tourney: dict, zero_adj) -> None:
     """Champion probabilities across all sims should sum to exactly n (counts)."""

@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 from backend.app.model.store import load_market, load_post
 from backend.app.simulation.engine import lams, mul, pois
 
@@ -51,6 +50,7 @@ MARKET_KEYS: list[str] = [
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def am2prob(american: int | None) -> float:
     """Convert an American odds value to implied probability.
@@ -123,6 +123,7 @@ def _devig(raw_h: float, raw_d: float, raw_a: float) -> tuple[float, float, floa
 # ---------------------------------------------------------------------------
 # Main research function
 # ---------------------------------------------------------------------------
+
 
 def run_market_edge_research(
     post: dict[str, Any] | None = None,
@@ -216,6 +217,7 @@ def _print_table(entries: list[dict[str, Any]]) -> None:
     for e in entries:
         label = e["match"][:29]
         rec = e["recommended"]
+
         # Flag positive-edge outcomes
         def _fmt_edge(val: float) -> str:
             s = f"{val:+.2f}"

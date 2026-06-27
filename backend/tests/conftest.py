@@ -4,9 +4,8 @@ Full fixtures (DB session, seed data, etc.) added in W2/W3.
 """
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-
 from backend.app.main import app
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture

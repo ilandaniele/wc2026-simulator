@@ -6,16 +6,14 @@ Uses RESEARCH_MOCK_DATA=1 to skip network downloads.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 import pytest
-
 from backend.app.research.halflife_sensitivity import (
+    _TOP10,
     HALF_LIFE_KEYS,
     HALF_LIVES,
-    _TOP10,
     run_halflife_research,
 )
 
@@ -24,15 +22,54 @@ from backend.app.research.halflife_sensitivity import (
 # ---------------------------------------------------------------------------
 
 _TEAMS = [
-    "Algeria", "Argentina", "Australia", "Austria", "Belgium",
-    "Bosnia and Herzegovina", "Brazil", "Cabo Verde", "Canada", "Colombia",
-    "Croatia", "Curaçao", "Czechia", "Côte d'Ivoire", "DR Congo",
-    "Ecuador", "Egypt", "England", "France", "Germany", "Ghana", "Haiti",
-    "Iran", "Iraq", "Japan", "Jordan", "Mexico", "Morocco", "Netherlands",
-    "New Zealand", "Norway", "Panama", "Paraguay", "Portugal", "Qatar",
-    "Saudi Arabia", "Scotland", "Senegal", "South Africa", "South Korea",
-    "Spain", "Sweden", "Switzerland", "Tunisia", "Türkiye", "USA",
-    "Uruguay", "Uzbekistan",
+    "Algeria",
+    "Argentina",
+    "Australia",
+    "Austria",
+    "Belgium",
+    "Bosnia and Herzegovina",
+    "Brazil",
+    "Cabo Verde",
+    "Canada",
+    "Colombia",
+    "Croatia",
+    "Curaçao",
+    "Czechia",
+    "Côte d'Ivoire",
+    "DR Congo",
+    "Ecuador",
+    "Egypt",
+    "England",
+    "France",
+    "Germany",
+    "Ghana",
+    "Haiti",
+    "Iran",
+    "Iraq",
+    "Japan",
+    "Jordan",
+    "Mexico",
+    "Morocco",
+    "Netherlands",
+    "New Zealand",
+    "Norway",
+    "Panama",
+    "Paraguay",
+    "Portugal",
+    "Qatar",
+    "Saudi Arabia",
+    "Scotland",
+    "Senegal",
+    "South Africa",
+    "South Korea",
+    "Spain",
+    "Sweden",
+    "Switzerland",
+    "Tunisia",
+    "Türkiye",
+    "USA",
+    "Uruguay",
+    "Uzbekistan",
 ]
 _N = len(_TEAMS)
 _N_DRAWS = 4
@@ -55,14 +92,15 @@ def _make_post() -> dict[str, Any]:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestRunHalflifeResearch:
     """AC24: run_halflife_research returns the correct structure."""
 
     @pytest.fixture(autouse=True)
     def _patch_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Patch data loaders to avoid file I/O / network calls."""
-        import backend.app.research.halflife_sensitivity as mod  # noqa: PLC0415
         import backend.app.model.store as store_mod  # noqa: PLC0415
+        import backend.app.research.halflife_sensitivity as mod  # noqa: PLC0415
 
         post = _make_post()
 
@@ -78,13 +116,24 @@ class TestRunHalflifeResearch:
         except Exception:
             # Fallback: build a minimal tourney from the stub
             groups = {
-                "A": _TEAMS[0:4], "B": _TEAMS[4:8], "C": _TEAMS[8:12],
-                "D": _TEAMS[12:16], "E": _TEAMS[16:20], "F": _TEAMS[20:24],
-                "G": _TEAMS[24:28], "H": _TEAMS[28:32], "I": _TEAMS[32:36],
-                "J": _TEAMS[36:40], "K": _TEAMS[40:44], "L": _TEAMS[44:48],
+                "A": _TEAMS[0:4],
+                "B": _TEAMS[4:8],
+                "C": _TEAMS[8:12],
+                "D": _TEAMS[12:16],
+                "E": _TEAMS[16:20],
+                "F": _TEAMS[20:24],
+                "G": _TEAMS[24:28],
+                "H": _TEAMS[28:32],
+                "I": _TEAMS[32:36],
+                "J": _TEAMS[36:40],
+                "K": _TEAMS[40:44],
+                "L": _TEAMS[44:48],
             }
-            state = {t: {"pts": 3, "gf": 2, "ga": 1, "gd": 1, "g": g}
-                     for g, ts in groups.items() for t in ts}
+            state = {
+                t: {"pts": 3, "gf": 2, "ga": 1, "gd": 1, "g": g}
+                for g, ts in groups.items()
+                for t in ts
+            }
             tourney = {"state": state, "remaining": [], "groups": groups}
 
         monkeypatch.setattr(store_mod, "load_tourney", lambda: tourney)
@@ -143,29 +192,38 @@ class TestHalflifeJsonOutput:
 
     @pytest.fixture(autouse=True)
     def _patch_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import backend.app.research.halflife_sensitivity as mod  # noqa: PLC0415
         import backend.app.model.store as store_mod  # noqa: PLC0415
+        import backend.app.research.halflife_sensitivity as mod  # noqa: PLC0415
 
         post = _make_post()
         monkeypatch.setattr(store_mod, "load_post", lambda model_id="current": post)
         monkeypatch.setattr(mod, "load_post", lambda model_id="current": post)
 
         groups = {
-            "A": _TEAMS[0:4], "B": _TEAMS[4:8], "C": _TEAMS[8:12],
-            "D": _TEAMS[12:16], "E": _TEAMS[16:20], "F": _TEAMS[20:24],
-            "G": _TEAMS[24:28], "H": _TEAMS[28:32], "I": _TEAMS[32:36],
-            "J": _TEAMS[36:40], "K": _TEAMS[40:44], "L": _TEAMS[44:48],
+            "A": _TEAMS[0:4],
+            "B": _TEAMS[4:8],
+            "C": _TEAMS[8:12],
+            "D": _TEAMS[12:16],
+            "E": _TEAMS[16:20],
+            "F": _TEAMS[20:24],
+            "G": _TEAMS[24:28],
+            "H": _TEAMS[28:32],
+            "I": _TEAMS[32:36],
+            "J": _TEAMS[36:40],
+            "K": _TEAMS[40:44],
+            "L": _TEAMS[44:48],
         }
-        state = {t: {"pts": 3, "gf": 2, "ga": 1, "gd": 1, "g": g}
-                 for g, ts in groups.items() for t in ts}
+        state = {
+            t: {"pts": 3, "gf": 2, "ga": 1, "gd": 1, "g": g}
+            for g, ts in groups.items()
+            for t in ts
+        }
         tourney = {"state": state, "remaining": [], "groups": groups}
 
         monkeypatch.setattr(store_mod, "load_tourney", lambda: tourney)
         monkeypatch.setattr(mod, "load_tourney", lambda: tourney)
 
-    def test_json_written(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_json_written(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         import backend.app.research.halflife_sensitivity as mod  # noqa: PLC0415
 
         monkeypatch.setattr(mod, "_RESEARCH_DIR", tmp_path)
@@ -183,9 +241,7 @@ class TestHalflifeJsonOutput:
             assert "champ" in data[key]
             assert "strength_top15" in data[key]
 
-    def test_md_written(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_md_written(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         import backend.app.research.halflife_sensitivity as mod  # noqa: PLC0415
 
         monkeypatch.setattr(mod, "_RESEARCH_DIR", tmp_path)

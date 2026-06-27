@@ -10,12 +10,10 @@ Usage:
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 from backend.app.model.store import load_post
 from backend.app.simulation.engine import lams, mul, pois
 
@@ -43,6 +41,7 @@ TODAY_MATCHES: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 # Match probability helper
 # ---------------------------------------------------------------------------
+
 
 def simulate_match(
     home: str,
@@ -97,6 +96,7 @@ def simulate_match(
 # Main research function
 # ---------------------------------------------------------------------------
 
+
 def run_bivariate_research(
     post: dict[str, Any] | None = None,
     n_per_draw: int = 50,
@@ -125,9 +125,7 @@ def run_bivariate_research(
         ph_indep, pd_indep, pa_indep = simulate_match(
             home, away, post, rho=0.0, n_per_draw=n_per_draw
         )
-        ph_biv, pd_biv, pa_biv = simulate_match(
-            home, away, post, rho=0.05, n_per_draw=n_per_draw
-        )
+        ph_biv, pd_biv, pa_biv = simulate_match(home, away, post, rho=0.05, n_per_draw=n_per_draw)
 
         delta_ph = round(ph_biv - ph_indep, 6)
         delta_pd = round(pd_biv - pd_indep, 6)
@@ -150,8 +148,7 @@ def run_bivariate_research(
 
     # Summary: mean of |delta_pH| + |delta_pD| + |delta_pA| across all matches / 3
     total_abs_delta = sum(
-        (abs(m["delta_pH"]) + abs(m["delta_pD"]) + abs(m["delta_pA"])) / 3
-        for m in match_results
+        (abs(m["delta_pH"]) + abs(m["delta_pD"]) + abs(m["delta_pA"])) / 3 for m in match_results
     )
     summary_mae = round(total_abs_delta / len(match_results), 6)
 

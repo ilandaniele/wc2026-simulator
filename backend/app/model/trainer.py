@@ -1,4 +1,4 @@
-"""Model trainer — importable version of retrain.py.
+﻿"""Model trainer â€” importable version of retrain.py.
 
 Ports retrain.py to an importable ``retrain()`` function that:
 1. Downloads the martj42 international_results dataset
@@ -15,7 +15,6 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import json
-import math
 import os
 import tempfile
 import urllib.request
@@ -30,27 +29,65 @@ import numpy as np
 
 RIDGE: float = 6.0
 DATA_URL: str = (
-    "https://raw.githubusercontent.com/martj42/international_results/"
-    "master/results.csv"
+    "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
 )
 
 TEAMS: list[str] = [
-    "Algeria", "Argentina", "Australia", "Austria", "Belgium",
-    "Bosnia and Herzegovina", "Brazil", "Cabo Verde", "Canada", "Colombia",
-    "Croatia", "Curaçao", "Czechia", "Côte d'Ivoire", "DR Congo",
-    "Ecuador", "Egypt", "England", "France", "Germany", "Ghana", "Haiti",
-    "Iran", "Iraq", "Japan", "Jordan", "Mexico", "Morocco", "Netherlands",
-    "New Zealand", "Norway", "Panama", "Paraguay", "Portugal", "Qatar",
-    "Saudi Arabia", "Scotland", "Senegal", "South Africa", "South Korea",
-    "Spain", "Sweden", "Switzerland", "Tunisia", "Türkiye", "USA",
-    "Uruguay", "Uzbekistan",
+    "Algeria",
+    "Argentina",
+    "Australia",
+    "Austria",
+    "Belgium",
+    "Bosnia and Herzegovina",
+    "Brazil",
+    "Cabo Verde",
+    "Canada",
+    "Colombia",
+    "Croatia",
+    "CuraÃ§ao",
+    "Czechia",
+    "CÃ´te d'Ivoire",
+    "DR Congo",
+    "Ecuador",
+    "Egypt",
+    "England",
+    "France",
+    "Germany",
+    "Ghana",
+    "Haiti",
+    "Iran",
+    "Iraq",
+    "Japan",
+    "Jordan",
+    "Mexico",
+    "Morocco",
+    "Netherlands",
+    "New Zealand",
+    "Norway",
+    "Panama",
+    "Paraguay",
+    "Portugal",
+    "Qatar",
+    "Saudi Arabia",
+    "Scotland",
+    "Senegal",
+    "South Africa",
+    "South Korea",
+    "Spain",
+    "Sweden",
+    "Switzerland",
+    "Tunisia",
+    "TÃ¼rkiye",
+    "USA",
+    "Uruguay",
+    "Uzbekistan",
 ]
 
 ALIAS: dict[str, str] = {
     "Cape Verde": "Cabo Verde",
     "Czech Republic": "Czechia",
-    "Ivory Coast": "Côte d'Ivoire",
-    "Turkey": "Türkiye",
+    "Ivory Coast": "CÃ´te d'Ivoire",
+    "Turkey": "TÃ¼rkiye",
     "United States": "USA",
     "DR Congo": "DR Congo",
     "Congo DR": "DR Congo",
@@ -61,7 +98,7 @@ _N: int = len(TEAMS)
 
 _BIG_TOURNAMENTS: tuple[str, ...] = (
     "FIFA World Cup",
-    "Copa América",
+    "Copa AmÃ©rica",
     "UEFA Euro",
     "African Cup",
     "Gold Cup",
@@ -75,12 +112,12 @@ _BIG_TOURNAMENTS: tuple[str, ...] = (
 # Path helpers
 # ---------------------------------------------------------------------------
 
-# This file is at backend/app/model/trainer.py → repo root is 4 levels up
+# This file is at backend/app/model/trainer.py â†’ repo root is 4 levels up
 _REPO_ROOT: Path = Path(__file__).resolve().parents[3]
 _DATA_DIR: Path = _REPO_ROOT / "data"
 
 
-def _atomic_write(path: Path, data: Any) -> None:
+def _atomic_write(path: Path, data: Any) -> None:  # noqa: ANN401  # noqa: ANN401 -> None:
     """Write *data* as JSON to *path* atomically (tmp + rename)."""
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
     try:
@@ -99,14 +136,15 @@ def _atomic_write(path: Path, data: Any) -> None:
 # Pipeline steps (mirrors retrain.py functions verbatim)
 # ---------------------------------------------------------------------------
 
+
 def _normalise(name: str) -> str:
     return ALIAS.get(name, name)
 
 
 def _load_rows() -> list[dict[str, str]]:
     """Download the martj42 dataset and return parsed CSV rows."""
-    req = urllib.request.Request(DATA_URL, headers={"User-Agent": "Mozilla/5.0"})
-    raw = urllib.request.urlopen(req, timeout=30).read().decode()
+    req = urllib.request.Request(DATA_URL, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
+    raw = urllib.request.urlopen(req, timeout=30).read().decode()  # noqa: S310
     rows = list(csv.DictReader(raw.splitlines()))
     return rows
 
@@ -185,7 +223,7 @@ def _fit_irls(
     r_mat = np.diag(ridge)
     hessian = r_mat  # initialise; overwritten in first iteration
 
-    for it in range(60):
+    for _it in range(60):
         eta = x_mat @ beta
         mu = np.exp(np.clip(eta, -6, 6))
         grad = x_mat.T @ (w_vec * (y_vec - mu)) - ridge * beta
@@ -211,7 +249,7 @@ def _export_draws(
 
     base = draws[:, 0]
     home = draws[:, 1]
-    att = draws[:, 2 : 2 + _N].T          # _N x n_draws
+    att = draws[:, 2 : 2 + _N].T  # _N x n_draws
     deff = draws[:, 2 + _N : 2 + 2 * _N].T
 
     return {
@@ -226,6 +264,7 @@ def _export_draws(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def retrain(half_life: float = 3.0, n_draws: int = 400) -> dict[str, Any]:
     """Fit the model and write data/POST.json + data/model_meta.json.
@@ -257,7 +296,7 @@ def retrain(half_life: float = 3.0, n_draws: int = 400) -> dict[str, Any]:
     _atomic_write(_DATA_DIR / "POST.json", post)
 
     # Write model_meta.json
-    trained_at = dt.datetime.now(dt.timezone.utc).isoformat()
+    trained_at = dt.datetime.now(dt.UTC).isoformat()
     meta: dict[str, Any] = {
         "model_id": "current",
         "trained_at": trained_at,
@@ -277,3 +316,4 @@ def _top10_from_post(post: dict[str, Any]) -> list[str]:
     scores = att_arr.mean(axis=1) + deff_arr.mean(axis=1)
     order = np.argsort(-scores)
     return [TEAMS[i] for i in order[:10]]
+

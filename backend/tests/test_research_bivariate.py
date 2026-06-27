@@ -6,10 +6,8 @@ import json
 import math
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 
 import pytest
-
 from backend.app.research.bivariate_vs_independent import (
     TODAY_MATCHES,
     run_bivariate_research,
@@ -21,9 +19,18 @@ from backend.app.research.bivariate_vs_independent import (
 # ---------------------------------------------------------------------------
 
 _TEAMS = [
-    "Algeria", "Argentina", "Austria", "Colombia", "Croatia",
-    "DR Congo", "England", "Ghana", "Jordan", "Panama",
-    "Portugal", "Uzbekistan",
+    "Algeria",
+    "Argentina",
+    "Austria",
+    "Colombia",
+    "Croatia",
+    "DR Congo",
+    "England",
+    "Ghana",
+    "Jordan",
+    "Panama",
+    "Portugal",
+    "Uzbekistan",
 ]
 _N = len(_TEAMS)
 _N_DRAWS = 4  # very small for fast tests
@@ -46,6 +53,7 @@ def _make_post() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateMatch:
     def test_probs_sum_to_one(self) -> None:
@@ -87,9 +95,16 @@ class TestRunBivariateResearch:
     def test_match_keys(self, post: dict[str, Any]) -> None:
         result = run_bivariate_research(post=post, n_per_draw=2)
         required = {
-            "match", "pH_indep", "pD_indep", "pA_indep",
-            "pH_biv", "pD_biv", "pA_biv",
-            "delta_pH", "delta_pD", "delta_pA",
+            "match",
+            "pH_indep",
+            "pD_indep",
+            "pA_indep",
+            "pH_biv",
+            "pD_biv",
+            "pA_biv",
+            "delta_pH",
+            "delta_pD",
+            "delta_pA",
         }
         for m in result["matches"]:
             assert required.issubset(m.keys()), f"Missing keys in {m}"
@@ -97,15 +112,9 @@ class TestRunBivariateResearch:
     def test_delta_consistency(self, post: dict[str, Any]) -> None:
         result = run_bivariate_research(post=post, n_per_draw=2)
         for m in result["matches"]:
-            assert math.isclose(
-                m["delta_pH"], m["pH_biv"] - m["pH_indep"], abs_tol=1e-5
-            )
-            assert math.isclose(
-                m["delta_pD"], m["pD_biv"] - m["pD_indep"], abs_tol=1e-5
-            )
-            assert math.isclose(
-                m["delta_pA"], m["pA_biv"] - m["pA_indep"], abs_tol=1e-5
-            )
+            assert math.isclose(m["delta_pH"], m["pH_biv"] - m["pH_indep"], abs_tol=1e-5)
+            assert math.isclose(m["delta_pD"], m["pD_biv"] - m["pD_indep"], abs_tol=1e-5)
+            assert math.isclose(m["delta_pA"], m["pA_biv"] - m["pA_indep"], abs_tol=1e-5)
 
     def test_summary_keys(self, post: dict[str, Any]) -> None:
         result = run_bivariate_research(post=post, n_per_draw=2)
@@ -141,16 +150,21 @@ class TestBivariateJsonOutput:
         assert len(data["matches"]) == 6  # exactly 6 matches
 
         required_match_keys = {
-            "match", "pH_indep", "pD_indep", "pA_indep",
-            "pH_biv", "pD_biv", "pA_biv",
-            "delta_pH", "delta_pD", "delta_pA",
+            "match",
+            "pH_indep",
+            "pD_indep",
+            "pA_indep",
+            "pH_biv",
+            "pD_biv",
+            "pA_biv",
+            "delta_pH",
+            "delta_pD",
+            "delta_pA",
         }
         for m in data["matches"]:
             assert required_match_keys.issubset(m.keys())
 
-    def test_md_written(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_md_written(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         post = _make_post()
         import backend.app.research.bivariate_vs_independent as mod  # noqa: PLC0415
 
