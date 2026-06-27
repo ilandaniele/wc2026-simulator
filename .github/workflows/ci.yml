@@ -36,7 +36,7 @@ jobs:
         run: ruff format --check backend/
 
       - name: Type check — mypy
-        run: mypy backend/app/ --strict
+        run: mypy backend/app/ --strict --explicit-package-bases
 
       - name: Test — pytest with coverage
         env:
