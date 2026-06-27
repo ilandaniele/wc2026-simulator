@@ -202,16 +202,16 @@ def run_market_edge_research(
 
 def _print_table(entries: list[dict[str, Any]]) -> None:
     """Print a human-readable edge table."""
-    print("\nMarket Edge Analysis — Model vs Bookmaker (today's 6 matches)")
-    print("=" * 100)
+    print("\nMarket Edge Analysis — Model vs Bookmaker (today's 6 matches)")  # crew-debug-ok
+    print("=" * 100)  # crew-debug-ok
     header = (
         f"{'Match':<30} {'mH':>7} {'mktH':>7} {'edgH':>7}"
         f" {'mD':>7} {'mktD':>7} {'edgD':>7}"
         f" {'mA':>7} {'mktA':>7} {'edgA':>7}"
         f" {'Rec':>8}"
     )
-    print(header)
-    print("-" * 100)
+    print(header)  # crew-debug-ok
+    print("-" * 100)  # crew-debug-ok
 
     for e in entries:
         label = e["match"][:29]
@@ -229,9 +229,9 @@ def _print_table(entries: list[dict[str, Any]]) -> None:
             f" {rec:>8}"
         )
 
-    print("-" * 100)
+    print("-" * 100)  # crew-debug-ok
     ev_bets = [e for e in entries if e["recommended"] != "no_value"]
-    print(f"\n+EV bets today: {len(ev_bets)}/6 matches")
+    print(f"\n+EV bets today: {len(ev_bets)}/6 matches")  # crew-debug-ok
     for e in ev_bets:
         rec = e["recommended"]
         edge_key = f"edge_{rec}_pp"
@@ -302,18 +302,18 @@ def _write_md(entries: list[dict[str, Any]]) -> None:
 
     md_path = _RESEARCH_DIR / "market_edge_today.md"
     md_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"\nWrote {md_path}")
+    print(f"\nWrote {md_path}")  # crew-debug-ok
 
 
 def main() -> None:
     """Entry point — run research and write outputs."""
-    print("Loading model and market odds...")
+    print("Loading model and market odds...")  # crew-debug-ok
     post = load_post("current")
     market = load_market()
-    print(f"Model: {len(post['teams'])} teams, {len(post['base'])} draws.")
-    print(f"Market: {len(market)} matches loaded.")
+    print(f"Model: {len(post['teams'])} teams, {len(post['base'])} draws.")  # crew-debug-ok
+    print(f"Market: {len(market)} matches loaded.")  # crew-debug-ok
 
-    print("Running market edge analysis (n_per_draw=50)...")
+    print("Running market edge analysis (n_per_draw=50)...")  # crew-debug-ok
     entries = run_market_edge_research(post=post, market=market, n_per_draw=50)
 
     _print_table(entries)
@@ -321,7 +321,7 @@ def main() -> None:
     _RESEARCH_DIR.mkdir(exist_ok=True)
     out_path = _RESEARCH_DIR / "market_edge_today.json"
     out_path.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\nWrote {out_path}")
+    print(f"\nWrote {out_path}")  # crew-debug-ok
 
     _write_md(entries)
 

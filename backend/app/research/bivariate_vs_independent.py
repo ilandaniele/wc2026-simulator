@@ -174,10 +174,10 @@ def _print_table(result: dict[str, Any]) -> None:
         f" {'pD_indep':>9} {'pD_biv':>9} {'d_pD':>8}"
         f" {'pA_indep':>9} {'pA_biv':>9} {'d_pA':>8}"
     )
-    print("\nBivariate Poisson (rho=0.05) vs Independent Poisson (rho=0.0)")
-    print("=" * len(header))
-    print(header)
-    print("-" * len(header))
+    print("\nBivariate Poisson (rho=0.05) vs Independent Poisson (rho=0.0)")  # crew-debug-ok
+    print("=" * len(header))  # crew-debug-ok
+    print(header)  # crew-debug-ok
+    print("-" * len(header))  # crew-debug-ok
     for m in result["matches"]:
         label = m["match"][:29]
         print(
@@ -186,7 +186,7 @@ def _print_table(result: dict[str, Any]) -> None:
             f" {m['pD_indep']:>9.4f} {m['pD_biv']:>9.4f} {m['delta_pD']:>+8.4f}"
             f" {m['pA_indep']:>9.4f} {m['pA_biv']:>9.4f} {m['delta_pA']:>+8.4f}"
         )
-    print("-" * len(header))
+    print("-" * len(header))  # crew-debug-ok
     print(
         f"\nMean absolute delta (pp): {result['summary']['mean_absolute_delta_pp']:.6f}"
     )
@@ -233,16 +233,16 @@ def _write_md(result: dict[str, Any]) -> None:
     ]
     md_path = _RESEARCH_DIR / "bivariate_vs_independent.md"
     md_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"\nWrote {md_path}")
+    print(f"\nWrote {md_path}")  # crew-debug-ok
 
 
 def main() -> None:
     """Entry point — run research and write outputs."""
-    print("Loading model...")
+    print("Loading model...")  # crew-debug-ok
     post = load_post("current")
-    print(f"Model loaded: {len(post['teams'])} teams, {len(post['base'])} draws.")
+    print(f"Model loaded: {len(post['teams'])} teams, {len(post['base'])} draws.")  # crew-debug-ok
 
-    print("Running bivariate vs independent comparison (n_per_draw=50)...")
+    print("Running bivariate vs independent comparison (n_per_draw=50)...")  # crew-debug-ok
     result = run_bivariate_research(post=post, n_per_draw=50)
 
     _print_table(result)
@@ -250,7 +250,7 @@ def main() -> None:
     _RESEARCH_DIR.mkdir(exist_ok=True)
     out_path = _RESEARCH_DIR / "bivariate_vs_independent.json"
     out_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\nWrote {out_path}")
+    print(f"\nWrote {out_path}")  # crew-debug-ok
 
     _write_md(result)
 

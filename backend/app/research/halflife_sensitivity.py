@@ -90,16 +90,16 @@ def run_halflife_research(mock: bool = False) -> dict[str, Any]:
     results: dict[str, Any] = {}
 
     for hl, key in zip(HALF_LIVES, HALF_LIFE_KEYS, strict=True):
-        print(f"\n--- half_life={hl}y ---")
+        print(f"\n--- half_life={hl}y ---")  # crew-debug-ok
         if mock:
-            print("  [MOCK] Using data/POST.json (no network call)")
+            print("  [MOCK] Using data/POST.json (no network call)")  # crew-debug-ok
         else:
-            print(f"  Retraining model (half_life={hl}, n_draws={_N_DRAWS_RESEARCH})...")
+            print(f"  Retraining model (half_life={hl}, n_draws={_N_DRAWS_RESEARCH})...")  # crew-debug-ok
 
         post = _load_post_for_hl(hl, mock)
         teams: list[str] = post["teams"]
 
-        print(f"  Running tournament simulation (n={_N_SIM}, seed={_SEED})...")
+        print(f"  Running tournament simulation (n={_N_SIM}, seed={_SEED})...")  # crew-debug-ok
         tally = run_tournament(
             n=_N_SIM,
             post=post,
@@ -136,13 +136,13 @@ def run_halflife_research(mock: bool = False) -> dict[str, Any]:
 
 def _print_comparison(results: dict[str, Any]) -> None:
     """Print a side-by-side comparison table."""
-    print("\n\nHalf-Life Sensitivity — Champion Probability Comparison")
-    print("=" * 70)
+    print("\n\nHalf-Life Sensitivity — Champion Probability Comparison")  # crew-debug-ok
+    print("=" * 70)  # crew-debug-ok
 
     col_w = 20
     header = "Rank  " + "".join(f"{'HL=' + k:>{col_w}}" for k in HALF_LIFE_KEYS)
-    print(header)
-    print("-" * len(header))
+    print(header)  # crew-debug-ok
+    print("-" * len(header))  # crew-debug-ok
 
     for rank in range(_TOP10):
         row = f"{rank + 1:>4}  "
@@ -152,13 +152,13 @@ def _print_comparison(results: dict[str, Any]) -> None:
             champ = results[key]["champ"].get(team, 0.0)
             cell = f"{team} ({champ:.2%})"
             row += f"{cell:>{col_w}}"
-        print(row)
+        print(row)  # crew-debug-ok
 
-    print("-" * len(header))
-    print("\nFinding: shorter half-lives weight recent form more heavily,")
-    print("shifting probability toward in-form teams at the expense of")
-    print("historically dominant sides. Convergence can be assessed by")
-    print("comparing the champion dicts across the three half-lives.")
+    print("-" * len(header))  # crew-debug-ok
+    print("\nFinding: shorter half-lives weight recent form more heavily,")  # crew-debug-ok
+    print("shifting probability toward in-form teams at the expense of")  # crew-debug-ok
+    print("historically dominant sides. Convergence can be assessed by")  # crew-debug-ok
+    print("comparing the champion dicts across the three half-lives.")  # crew-debug-ok
 
 
 def _write_md(results: dict[str, Any]) -> None:
@@ -201,14 +201,14 @@ def _write_md(results: dict[str, Any]) -> None:
 
     md_path = _RESEARCH_DIR / "halflife_sensitivity.md"
     md_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"\nWrote {md_path}")
+    print(f"\nWrote {md_path}")  # crew-debug-ok
 
 
 def main() -> None:
     """Entry point — run research and write outputs."""
     mock = os.environ.get("RESEARCH_MOCK_DATA", "0") == "1"
     if mock:
-        print("[RESEARCH_MOCK_DATA=1] Skipping network downloads.")
+        print("[RESEARCH_MOCK_DATA=1] Skipping network downloads.")  # crew-debug-ok
 
     results = run_halflife_research(mock=mock)
     _print_comparison(results)
@@ -216,7 +216,7 @@ def main() -> None:
     _RESEARCH_DIR.mkdir(exist_ok=True)
     out_path = _RESEARCH_DIR / "halflife_sensitivity.json"
     out_path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\nWrote {out_path}")
+    print(f"\nWrote {out_path}")  # crew-debug-ok
 
     _write_md(results)
 
