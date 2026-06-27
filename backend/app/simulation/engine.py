@@ -230,6 +230,7 @@ def assign_thirds(groups_qualified: set[str]) -> dict[str, str] | None:
 
     Returns a dict mapping slot letter → group letter, or None if impossible.
     """
+
     def slot_options(slot: str) -> list[str]:
         return [g for g in TALLOW[slot] if g in groups_qualified]
 
@@ -405,6 +406,7 @@ def run_tournament(
             return team_a if winner == 0 else team_b
 
         if assign:
+
             def t_slot(
                 slot: str,
                 _th: dict[str, str] = th,

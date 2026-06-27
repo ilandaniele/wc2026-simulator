@@ -1,4 +1,4 @@
-﻿"""FastAPI application entry point â€” full endpoint suite (W2 + W3).
+"""FastAPI application entry point â€” full endpoint suite (W2 + W3).
 
 W2 endpoints (unchanged):
   GET  /health                â€” liveness probe

@@ -1,4 +1,4 @@
-﻿"""Model trainer â€” importable version of retrain.py.
+"""Model trainer â€” importable version of retrain.py.
 
 Ports retrain.py to an importable ``retrain()`` function that:
 1. Downloads the martj42 international_results dataset
@@ -316,4 +316,3 @@ def _top10_from_post(post: dict[str, Any]) -> list[str]:
     scores = att_arr.mean(axis=1) + deff_arr.mean(axis=1)
     order = np.argsort(-scores)
     return [TEAMS[i] for i in order[:10]]
-
