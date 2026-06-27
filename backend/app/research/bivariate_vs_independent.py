@@ -180,17 +180,17 @@ def _print_table(result: dict[str, Any]) -> None:
     print("-" * len(header))  # crew-debug-ok
     for m in result["matches"]:
         label = m["match"][:29]
-        print(
+        print(  # crew-debug-ok
             f"{label:<30}"
             f" {m['pH_indep']:>9.4f} {m['pH_biv']:>9.4f} {m['delta_pH']:>+8.4f}"
             f" {m['pD_indep']:>9.4f} {m['pD_biv']:>9.4f} {m['delta_pD']:>+8.4f}"
             f" {m['pA_indep']:>9.4f} {m['pA_biv']:>9.4f} {m['delta_pA']:>+8.4f}"
         )
     print("-" * len(header))  # crew-debug-ok
-    print(
+    print(  # crew-debug-ok
         f"\nMean absolute delta (pp): {result['summary']['mean_absolute_delta_pp']:.6f}"
     )
-    print(
+    print(  # crew-debug-ok
         "Finding: bivariate correction shifts probability mass toward the draw "
         "outcome (positive delta_pD) and away from both win outcomes, "
         "consistent with goal-count covariance induced by rho > 0."

@@ -221,7 +221,7 @@ def _print_table(entries: list[dict[str, Any]]) -> None:
             s = f"{val:+.2f}"
             return f"[{s}]" if val > 0 else f" {s} "
 
-        print(
+        print(  # crew-debug-ok
             f"{label:<30}"
             f" {e['model_pH']:>7.4f} {e['market_pH']:>7.4f} {_fmt_edge(e['edge_H_pp']):>7}"
             f" {e['model_pD']:>7.4f} {e['market_pD']:>7.4f} {_fmt_edge(e['edge_D_pp']):>7}"
@@ -235,7 +235,7 @@ def _print_table(entries: list[dict[str, Any]]) -> None:
     for e in ev_bets:
         rec = e["recommended"]
         edge_key = f"edge_{rec}_pp"
-        print(
+        print(  # crew-debug-ok
             f"  {e['match']}: {rec} side  "
             f"(model {e[f'model_p{rec}']:.2%} vs mkt {e[f'market_p{rec}']:.2%}, "
             f"edge {e[edge_key]:+.2f} pp)"
