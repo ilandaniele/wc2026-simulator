@@ -79,6 +79,7 @@ _ALLOWED_ORIGINS: list[str] = (
     else [
         "http://localhost:5173",
         "http://localhost:4173",
+        "https://wc2026-frontend-owmd.onrender.com",
     ]
 )
 
