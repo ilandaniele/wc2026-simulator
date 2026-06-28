@@ -59,7 +59,6 @@ from backend.app.simulation.engine import (
     compute_strength,
     lams,
     mul,
-
     pois,
     run_tournament,
 )
