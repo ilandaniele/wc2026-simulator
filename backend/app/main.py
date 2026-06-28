@@ -59,7 +59,7 @@ from backend.app.simulation.engine import (
     compute_strength,
     lams,
     mul,
-    next_rand,
+
     pois,
     run_tournament,
 )
@@ -762,7 +762,7 @@ def _derive_r32_bracket(
 
     # Bracket: matches 73-88 (mirrors engine.py)
     bracket = [
-        (73, ru["A"], f"2A", ru["B"], "2B"),
+        (73, ru["A"], "2A", ru["B"], "2B"),
         (74, wn["E"], "1E", t_slot("E"), slot_label("E")),
         (75, wn["F"], "1F", ru["C"], "2C"),
         (76, wn["C"], "1C", ru["F"], "2F"),
@@ -807,9 +807,9 @@ class R32MatchResult(BaseModel):
     home_slot: str
     away: str
     away_slot: str
-    pH: float
-    pD: float
-    pA: float
+    pH: float  # noqa: N815
+    pD: float  # noqa: N815
+    pA: float  # noqa: N815
     score_h: int | None = None
     score_a: int | None = None
     played: bool = False
