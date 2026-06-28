@@ -73,14 +73,15 @@ from slowapi.util import get_remote_address
 # ---------------------------------------------------------------------------
 
 _raw = os.environ.get("ALLOWED_ORIGINS", "")
-_ALLOWED_ORIGINS: list[str] = (
-    [o.strip() for o in _raw.split(",") if o.strip()]
-    if _raw
-    else [
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "https://wc2026-frontend-owmd.onrender.com",
-    ]
+_ALLOWED_ORIGINS: list[str] = list(
+    dict.fromkeys(
+        [o.strip() for o in _raw.split(",") if o.strip()]
+        + [
+            "http://localhost:5173",
+            "http://localhost:4173",
+            "https://wc2026-frontend-owmd.onrender.com",
+        ]
+    )
 )
 
 # ---------------------------------------------------------------------------
