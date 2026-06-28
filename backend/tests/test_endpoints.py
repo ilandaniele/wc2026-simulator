@@ -216,34 +216,40 @@ async def test_simulate_h2h(client: AsyncClient) -> None:
 
 @pytest.mark.anyio
 async def test_market_odds(client: AsyncClient) -> None:
-    """AC10: GET /market/odds → 6 entries with h/d/a."""
+    """AC10: GET /market/odds → 6 entries as a list with home/away/h/d/a."""
     resp = await client.get("/market/odds")
     assert resp.status_code == 200, resp.text
     data = resp.json()
 
     odds = data["odds"]
+    assert isinstance(odds, list), "odds should be a list"
     assert len(odds) == 6, f"Expected 6 matches, got {len(odds)}"
 
-    for matchkey, entry in odds.items():
-        assert "h" in entry, f"Missing 'h' in {matchkey}"
-        assert "a" in entry, f"Missing 'a' in {matchkey}"
-        # 'd' may be null (draws possible in all group matches)
-        assert isinstance(entry["h"], int), f"h is not int in {matchkey}"
-        assert isinstance(entry["a"], int), f"a is not int in {matchkey}"
+    for entry in odds:
+        assert "home" in entry, f"Missing 'home' in {entry}"
+        assert "away" in entry, f"Missing 'away' in {entry}"
+        assert "h" in entry, f"Missing 'h' in {entry}"
+        assert "a" in entry, f"Missing 'a' in {entry}"
+        assert isinstance(entry["h"], int), f"h is not int in {entry}"
+        assert isinstance(entry["a"], int), f"a is not int in {entry}"
 
 
 @pytest.mark.anyio
 async def test_put_market_odds(client: AsyncClient) -> None:
     """AC10: PUT /market/odds → 200 and save_market called with the correct payload."""
-    # Read current odds structure
+    # Read current odds (now a list)
     get_resp = await client.get("/market/odds")
     assert get_resp.status_code == 200
-    original = get_resp.json()
+    original_list = get_resp.json()["odds"]
+    assert len(original_list) > 0
 
-    # Build modified odds — change first entry h value to sentinel
-    first_key = next(iter(original["odds"]))
-    modified_odds = dict(original["odds"])
-    modified_odds[first_key] = dict(modified_odds[first_key])
+    # Reconstruct dict format expected by PUT ("home|away" → {h,d,a})
+    first_entry = original_list[0]
+    first_key = f"{first_entry['home']}|{first_entry['away']}"
+    modified_odds = {
+        f"{e['home']}|{e['away']}": {"h": e["h"], "d": e.get("d"), "a": e["a"]}
+        for e in original_list
+    }
     modified_odds[first_key]["h"] = 9999  # sentinel
 
     # Patch save_market to avoid writing to the fixtures directory on disk
@@ -258,6 +264,49 @@ async def test_put_market_odds(client: AsyncClient) -> None:
         assert saved_arg[first_key]["h"] == 9999, (
             f"save_market not called with sentinel h=9999, got {saved_arg[first_key]['h']}"
         )
+
+
+# ---------------------------------------------------------------------------
+# GET /tourney/r32
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_get_r32(client: AsyncClient) -> None:
+    """GET /tourney/r32 → 16 matches with pH/pD/pA and optional coach names."""
+    resp = await client.get("/tourney/r32")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    matches = data["matches"]
+    assert isinstance(matches, list)
+    assert len(matches) == 16, f"Expected 16 R32 matches, got {len(matches)}"
+
+    for m in matches:
+        assert "id" in m
+        assert 73 <= m["id"] <= 88
+        assert "home" in m and "away" in m
+        assert "pH" in m and "pD" in m and "pA" in m
+        total = m["pH"] + m["pD"] + m["pA"]
+        assert abs(total - 1.0) < 0.05, f"Probabilities don't sum to ~1: {total}"
+        assert "played" in m
+        assert "uncertain" in m
+
+
+@pytest.mark.anyio
+async def test_put_r32_result(client: AsyncClient) -> None:
+    """PUT /tourney/r32/{match_id} → 200 with ok=True and saves via save_r32."""
+    with patch("backend.app.main.save_r32") as mock_save:
+        resp = await client.put("/tourney/r32/73", json={"score_h": 2, "score_a": 1})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["ok"] is True
+        mock_save.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_put_r32_result_invalid_id(client: AsyncClient) -> None:
+    """PUT /tourney/r32/{match_id} with out-of-range id → 400."""
+    resp = await client.put("/tourney/r32/1", json={"score_h": 0, "score_a": 0})
+    assert resp.status_code == 400
 
 
 # ---------------------------------------------------------------------------
