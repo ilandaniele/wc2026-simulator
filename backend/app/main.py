@@ -692,7 +692,7 @@ def _derive_r32_bracket(
     """Derive the R32 bracket from current group standings and return match list."""
     state_data = tourney["state"]
     groups = tourney["groups"]
-    remaining_pairs: set[tuple[str, str]] = {tuple(m) for m in tourney["remaining"]}  # type: ignore[misc]
+    remaining_pairs: set[tuple[str, str]] = {(m["home"], m["away"]) for m in tourney["remaining"]}
 
     # Groups that still have matches to play → their standings are uncertain
     pending_groups: set[str] = set()
@@ -748,7 +748,7 @@ def _derive_r32_bracket(
         # Fallback: use best available 3rd
         for x in top8:
             if x["g"] != slot:
-                return x["t"]
+                return str(x["t"])
         return "TBD"
 
     def slot_label(slot: str) -> str:
