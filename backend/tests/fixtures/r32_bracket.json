@@ -1,0 +1,20 @@
+{
+  "matches": [
+    {"id": 73, "home": "Canada",               "home_slot": "2B", "away": "South Africa",        "away_slot": "2A", "date": "2026-06-28"},
+    {"id": 74, "home": "Brazil",               "home_slot": "1C", "away": "Japan",               "away_slot": "2F", "date": "2026-06-29"},
+    {"id": 75, "home": "Germany",              "home_slot": "1E", "away": "Paraguay",             "away_slot": "3D", "date": "2026-06-29"},
+    {"id": 76, "home": "Netherlands",          "home_slot": "1F", "away": "Morocco",              "away_slot": "2C", "date": "2026-06-29"},
+    {"id": 77, "home": "Côte d'Ivoire",        "home_slot": "2E", "away": "Norway",              "away_slot": "2I", "date": "2026-06-30"},
+    {"id": 78, "home": "France",               "home_slot": "1I", "away": "Sweden",              "away_slot": "3F", "date": "2026-06-30"},
+    {"id": 79, "home": "Mexico",               "home_slot": "1A", "away": "Ecuador",             "away_slot": "3E", "date": "2026-06-30"},
+    {"id": 80, "home": "England",              "home_slot": "1L", "away": "DR Congo",            "away_slot": "3K", "date": "2026-07-01"},
+    {"id": 81, "home": "Belgium",              "home_slot": "1G", "away": "Senegal",             "away_slot": "3I", "date": "2026-07-01"},
+    {"id": 82, "home": "USA",                  "home_slot": "1D", "away": "Bosnia and Herzegovina", "away_slot": "3B", "date": "2026-07-01"},
+    {"id": 83, "home": "Spain",                "home_slot": "1H", "away": "Austria",             "away_slot": "2J", "date": "2026-07-02"},
+    {"id": 84, "home": "Portugal",             "home_slot": "2K", "away": "Croatia",             "away_slot": "2L", "date": "2026-07-02"},
+    {"id": 85, "home": "Switzerland",          "home_slot": "1B", "away": "Algeria",             "away_slot": "3J", "date": "2026-07-02"},
+    {"id": 86, "home": "Australia",            "home_slot": "2D", "away": "Egypt",               "away_slot": "2G", "date": "2026-07-03"},
+    {"id": 87, "home": "Argentina",            "home_slot": "1J", "away": "Cabo Verde",          "away_slot": "2H", "date": "2026-07-03"},
+    {"id": 88, "home": "Colombia",             "home_slot": "1K", "away": "Ghana",               "away_slot": "3L", "date": "2026-07-03"}
+  ]
+}

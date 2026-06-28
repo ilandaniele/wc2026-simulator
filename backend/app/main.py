@@ -41,6 +41,7 @@ from backend.app.model.store import (
     load_meta,
     load_post,
     load_r32,
+    load_r32_bracket,
     load_tourney,
     save_market,
     save_r32,
@@ -825,14 +826,40 @@ class R32Response(BaseModel):
 
 @app.get("/tourney/r32", response_model=R32Response, tags=["tourney"])
 async def get_r32() -> R32Response:
-    """Return the R32 bracket with predictions, actual scores, and coach context."""
-    tourney = load_tourney()
+    """Return the R32 bracket with predictions, actual scores, and coach context.
+
+    Uses static r32_bracket.json when present (authoritative real-world bracket);
+    falls back to computing the bracket from group standings otherwise.
+    """
     post = load_post()
     r32_data = load_r32()
     coaches = load_coaches()
     stored = r32_data.get("results", {})
 
-    bracket = _derive_r32_bracket(tourney, post)
+    static_bracket = load_r32_bracket()
+    if static_bracket is not None:
+        # Use the authoritative static bracket; compute probabilities for each match.
+        ti: dict[str, int] = {t: i for i, t in enumerate(post["teams"])}
+        bracket: list[dict[str, Any]] = []
+        for entry in static_bracket:
+            home, away = entry["home"], entry["away"]
+            if home in ti and away in ti:
+                ph, pd, pa = _m_prob(ti[home], ti[away], post, 20, 0.05)
+            else:
+                ph, pd, pa = 0.0, 0.0, 0.0
+            bracket.append(
+                {
+                    **entry,
+                    "pH": round(ph, 4),
+                    "pD": round(pd, 4),
+                    "pA": round(pa, 4),
+                    "uncertain": False,
+                }
+            )
+    else:
+        tourney = load_tourney()
+        bracket = _derive_r32_bracket(tourney, post)
+
     matches: list[R32MatchResult] = []
     for m in bracket:
         res = stored.get(str(m["id"]), {})
@@ -851,7 +878,7 @@ async def get_r32() -> R32Response:
                 score_h=score_h,
                 score_a=score_a,
                 played=score_h is not None,
-                uncertain=m["uncertain"],
+                uncertain=m.get("uncertain", False),
                 home_coach=coaches.get(m["home"], {}).get("name"),
                 away_coach=coaches.get(m["away"], {}).get("name"),
             )

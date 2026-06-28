@@ -149,3 +149,17 @@ def load_coaches() -> dict[str, Any]:
         return {}
     with open(path, encoding="utf-8") as f:
         return cast(dict[str, Any], json.load(f))
+
+
+def load_r32_bracket() -> list[dict[str, Any]] | None:
+    """Load static R32 bracket from data/r32_bracket.json.
+
+    Returns the list of match dicts when the file exists, or None when it
+    doesn't (so callers can fall back to the computed bracket).
+    """
+    path = _data_path("r32_bracket.json")
+    if not path.exists():
+        return None
+    with open(path, encoding="utf-8") as f:
+        data = cast(dict[str, Any], json.load(f))
+    return cast(list[dict[str, Any]], data.get("matches", []))
