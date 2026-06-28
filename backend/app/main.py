@@ -726,13 +726,15 @@ def _derive_r32_bracket(
         wn[g] = sorted_t[0]
         ru[g] = sorted_t[1]
         th[g] = sorted_t[2]
-        thirds.append({
-            "g": g,
-            "t": sorted_t[2],
-            "pts": state_data[sorted_t[2]]["pts"],
-            "gd": state_data[sorted_t[2]]["gf"] - state_data[sorted_t[2]]["ga"],
-            "gf": state_data[sorted_t[2]]["gf"],
-        })
+        thirds.append(
+            {
+                "g": g,
+                "t": sorted_t[2],
+                "pts": state_data[sorted_t[2]]["pts"],
+                "gd": state_data[sorted_t[2]]["gf"] - state_data[sorted_t[2]]["ga"],
+                "gf": state_data[sorted_t[2]]["gf"],
+            }
+        )
 
     # Best 8 third-place teams
     thirds.sort(key=lambda x: (-x["pts"], -x["gd"], -x["gf"], sr.get(x["t"], 99)))
@@ -755,9 +757,7 @@ def _derive_r32_bracket(
         return "3rd"
 
     def uncertain(*teams: str) -> bool:
-        return any(
-            any(t in groups[g] for g in pending_groups) for t in teams
-        )
+        return any(any(t in groups[g] for g in pending_groups) for t in teams)
 
     # Bracket: matches 73-88 (mirrors engine.py)
     bracket = [
@@ -786,17 +786,19 @@ def _derive_r32_bracket(
             ph, pd, pa = _m_prob(ti[home], ti[away], post, 20, 0.05)
         else:
             ph, pd, pa = 0.0, 0.0, 0.0
-        results.append({
-            "id": mid,
-            "home": home,
-            "home_slot": home_slot,
-            "away": away,
-            "away_slot": away_slot,
-            "pH": round(ph, 4),
-            "pD": round(pd, 4),
-            "pA": round(pa, 4),
-            "uncertain": uncertain(home, away),
-        })
+        results.append(
+            {
+                "id": mid,
+                "home": home,
+                "home_slot": home_slot,
+                "away": away,
+                "away_slot": away_slot,
+                "pH": round(ph, 4),
+                "pD": round(pd, 4),
+                "pA": round(pa, 4),
+                "uncertain": uncertain(home, away),
+            }
+        )
     return results
 
 
@@ -836,22 +838,24 @@ async def get_r32() -> R32Response:
         res = stored.get(str(m["id"]), {})
         score_h = res.get("score_h")
         score_a = res.get("score_a")
-        matches.append(R32MatchResult(
-            id=m["id"],
-            home=m["home"],
-            home_slot=m["home_slot"],
-            away=m["away"],
-            away_slot=m["away_slot"],
-            pH=m["pH"],
-            pD=m["pD"],
-            pA=m["pA"],
-            score_h=score_h,
-            score_a=score_a,
-            played=score_h is not None,
-            uncertain=m["uncertain"],
-            home_coach=coaches.get(m["home"], {}).get("name"),
-            away_coach=coaches.get(m["away"], {}).get("name"),
-        ))
+        matches.append(
+            R32MatchResult(
+                id=m["id"],
+                home=m["home"],
+                home_slot=m["home_slot"],
+                away=m["away"],
+                away_slot=m["away_slot"],
+                pH=m["pH"],
+                pD=m["pD"],
+                pA=m["pA"],
+                score_h=score_h,
+                score_a=score_a,
+                played=score_h is not None,
+                uncertain=m["uncertain"],
+                home_coach=coaches.get(m["home"], {}).get("name"),
+                away_coach=coaches.get(m["away"], {}).get("name"),
+            )
+        )
     return R32Response(matches=matches)
 
 
