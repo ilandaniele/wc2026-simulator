@@ -126,3 +126,26 @@ def save_market(data: dict[str, Any]) -> None:
     write cannot corrupt the existing file.
     """
     _write_json(_data_path("market.json"), data)
+
+
+def load_r32() -> dict[str, Any]:
+    """Load R32 actual results from data/r32.json. Returns empty dict if missing."""
+    path = _data_path("r32.json")
+    if not path.exists():
+        return {"results": {}}
+    with open(path, encoding="utf-8") as f:
+        return cast(dict[str, Any], json.load(f))
+
+
+def save_r32(data: dict[str, Any]) -> None:
+    """Atomically write R32 results to data/r32.json."""
+    _write_json(_data_path("r32.json"), data)
+
+
+def load_coaches() -> dict[str, Any]:
+    """Load coach metadata from data/coaches.json. Returns empty dict if missing."""
+    path = _data_path("coaches.json")
+    if not path.exists():
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return cast(dict[str, Any], json.load(f))

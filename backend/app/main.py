@@ -36,11 +36,14 @@ from backend.app.errors import (
     unknown_team_response,
 )
 from backend.app.model.store import (
+    load_coaches,
     load_market,
     load_meta,
     load_post,
+    load_r32,
     load_tourney,
     save_market,
+    save_r32,
     save_tourney,
 )
 from backend.app.schemas import (
@@ -52,9 +55,11 @@ from backend.app.schemas import (
     TourneyStateBody,
 )
 from backend.app.simulation.engine import (
+    assign_thirds,
     compute_strength,
     lams,
     mul,
+    next_rand,
     pois,
     run_tournament,
 )
@@ -621,24 +626,31 @@ async def simulate_h2h(body: SimH2HRequest) -> SimH2HResponse | JSONResponse:
 
 
 class OddsEntry(BaseModel):
+    home: str
+    away: str
     h: int
     d: int | None = None
     a: int
 
 
 class MarketOddsResponse(BaseModel):
-    odds: dict[str, OddsEntry]
+    odds: list[OddsEntry]
 
 
 @app.get("/market/odds", response_model=MarketOddsResponse, tags=["market"])
 async def market_odds() -> MarketOddsResponse:
-    """Return today's bookmaker odds from data/market.json."""
+    """Return today's bookmaker odds from data/market.json as an array."""
     try:
         data = load_market()
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail="market.json not found") from exc
-    odds = {k: OddsEntry(**v) for k, v in data.items()}
-    return MarketOddsResponse(odds=odds)
+    entries: list[OddsEntry] = []
+    for key, v in data.items():
+        parts = key.split("|", 1)
+        if len(parts) != 2:
+            continue
+        entries.append(OddsEntry(home=parts[0], away=parts[1], **v))
+    return MarketOddsResponse(odds=entries)
 
 
 # ---------------------------------------------------------------------------
@@ -646,8 +658,14 @@ async def market_odds() -> MarketOddsResponse:
 # ---------------------------------------------------------------------------
 
 
+class OddsEntryRaw(BaseModel):
+    h: int
+    d: int | None = None
+    a: int
+
+
 class MarketOddsBody(BaseModel):
-    odds: dict[str, OddsEntry]
+    odds: dict[str, OddsEntryRaw]
 
     model_config = {"extra": "forbid"}
 
@@ -657,6 +675,206 @@ async def put_market_odds(body: MarketOddsBody) -> dict[str, bool]:
     """Replace today's bookmaker odds document atomically."""
     try:
         save_market({k: v.model_dump() for k, v in body.odds.items()})
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# GET /tourney/r32  — R32 bracket with predictions + actual scores
+# PUT /tourney/r32/{match_id} — record actual score for a match
+# ---------------------------------------------------------------------------
+
+
+def _derive_r32_bracket(
+    tourney: dict[str, Any],
+    post: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Derive the R32 bracket from current group standings and return match list."""
+    state_data = tourney["state"]
+    groups = tourney["groups"]
+    remaining_pairs: set[tuple[str, str]] = {tuple(m) for m in tourney["remaining"]}  # type: ignore[misc]
+
+    # Groups that still have matches to play → their standings are uncertain
+    pending_groups: set[str] = set()
+    for h, a in remaining_pairs:
+        for g, members in groups.items():
+            if h in members or a in members:
+                pending_groups.add(g)
+
+    # Strength ranking for tiebreaks
+    strength = compute_strength(post)
+    sr: dict[str, int] = {x["team"]: i for i, x in enumerate(strength)}
+
+    def sort_group(members: list[str]) -> list[str]:
+        return sorted(
+            members,
+            key=lambda x: (
+                -state_data[x]["pts"],
+                -(state_data[x]["gf"] - state_data[x]["ga"]),
+                -state_data[x]["gf"],
+                sr.get(x, 99),
+            ),
+        )
+
+    wn: dict[str, str] = {}
+    ru: dict[str, str] = {}
+    th: dict[str, str] = {}
+    thirds: list[dict[str, Any]] = []
+
+    for g, members in groups.items():
+        sorted_t = sort_group(members)
+        wn[g] = sorted_t[0]
+        ru[g] = sorted_t[1]
+        th[g] = sorted_t[2]
+        thirds.append({
+            "g": g,
+            "t": sorted_t[2],
+            "pts": state_data[sorted_t[2]]["pts"],
+            "gd": state_data[sorted_t[2]]["gf"] - state_data[sorted_t[2]]["ga"],
+            "gf": state_data[sorted_t[2]]["gf"],
+        })
+
+    # Best 8 third-place teams
+    thirds.sort(key=lambda x: (-x["pts"], -x["gd"], -x["gf"], sr.get(x["t"], 99)))
+    top8 = thirds[:8]
+    groups_q = {x["g"] for x in top8}
+    assign = assign_thirds(groups_q)
+
+    def t_slot(slot: str) -> str:
+        if assign and slot in assign:
+            return th[assign[slot]]
+        # Fallback: use best available 3rd
+        for x in top8:
+            if x["g"] != slot:
+                return x["t"]
+        return "TBD"
+
+    def slot_label(slot: str) -> str:
+        if assign and slot in assign:
+            return f"3{assign[slot]}"
+        return "3rd"
+
+    def uncertain(*teams: str) -> bool:
+        return any(
+            any(t in groups[g] for g in pending_groups) for t in teams
+        )
+
+    # Bracket: matches 73-88 (mirrors engine.py)
+    bracket = [
+        (73, ru["A"], f"2A", ru["B"], "2B"),
+        (74, wn["E"], "1E", t_slot("E"), slot_label("E")),
+        (75, wn["F"], "1F", ru["C"], "2C"),
+        (76, wn["C"], "1C", ru["F"], "2F"),
+        (77, wn["I"], "1I", t_slot("I"), slot_label("I")),
+        (78, ru["E"], "2E", ru["I"], "2I"),
+        (79, wn["A"], "1A", t_slot("A"), slot_label("A")),
+        (80, wn["L"], "1L", t_slot("L"), slot_label("L")),
+        (81, wn["D"], "1D", t_slot("D"), slot_label("D")),
+        (82, wn["G"], "1G", t_slot("G"), slot_label("G")),
+        (83, ru["K"], "2K", ru["L"], "2L"),
+        (84, wn["H"], "1H", ru["J"], "2J"),
+        (85, wn["B"], "1B", t_slot("B"), slot_label("B")),
+        (86, wn["J"], "1J", ru["H"], "2H"),
+        (87, wn["K"], "1K", t_slot("K"), slot_label("K")),
+        (88, ru["D"], "2D", ru["G"], "2G"),
+    ]
+
+    ti: dict[str, int] = {t: i for i, t in enumerate(post["teams"])}
+    results: list[dict[str, Any]] = []
+    for mid, home, home_slot, away, away_slot in bracket:
+        if home in ti and away in ti:
+            ph, pd, pa = _m_prob(ti[home], ti[away], post, 20, 0.05)
+        else:
+            ph, pd, pa = 0.0, 0.0, 0.0
+        results.append({
+            "id": mid,
+            "home": home,
+            "home_slot": home_slot,
+            "away": away,
+            "away_slot": away_slot,
+            "pH": round(ph, 4),
+            "pD": round(pd, 4),
+            "pA": round(pa, 4),
+            "uncertain": uncertain(home, away),
+        })
+    return results
+
+
+class R32MatchResult(BaseModel):
+    id: int
+    home: str
+    home_slot: str
+    away: str
+    away_slot: str
+    pH: float
+    pD: float
+    pA: float
+    score_h: int | None = None
+    score_a: int | None = None
+    played: bool = False
+    uncertain: bool = False
+    home_coach: str | None = None
+    away_coach: str | None = None
+
+
+class R32Response(BaseModel):
+    matches: list[R32MatchResult]
+
+
+@app.get("/tourney/r32", response_model=R32Response, tags=["tourney"])
+async def get_r32() -> R32Response:
+    """Return the R32 bracket with predictions, actual scores, and coach context."""
+    tourney = load_tourney()
+    post = load_post()
+    r32_data = load_r32()
+    coaches = load_coaches()
+    stored = r32_data.get("results", {})
+
+    bracket = _derive_r32_bracket(tourney, post)
+    matches: list[R32MatchResult] = []
+    for m in bracket:
+        res = stored.get(str(m["id"]), {})
+        score_h = res.get("score_h")
+        score_a = res.get("score_a")
+        matches.append(R32MatchResult(
+            id=m["id"],
+            home=m["home"],
+            home_slot=m["home_slot"],
+            away=m["away"],
+            away_slot=m["away_slot"],
+            pH=m["pH"],
+            pD=m["pD"],
+            pA=m["pA"],
+            score_h=score_h,
+            score_a=score_a,
+            played=score_h is not None,
+            uncertain=m["uncertain"],
+            home_coach=coaches.get(m["home"], {}).get("name"),
+            away_coach=coaches.get(m["away"], {}).get("name"),
+        ))
+    return R32Response(matches=matches)
+
+
+class R32ResultBody(BaseModel):
+    score_h: int
+    score_a: int
+
+    model_config = {"extra": "forbid"}
+
+
+@app.put("/tourney/r32/{match_id}", response_model=dict, tags=["tourney"])
+async def put_r32_result(match_id: int, body: R32ResultBody) -> dict[str, bool]:
+    """Record the actual score for an R32 match."""
+    if match_id < 73 or match_id > 88:
+        raise HTTPException(status_code=400, detail="match_id must be 73-88")
+    r32_data = load_r32()
+    r32_data.setdefault("results", {})[str(match_id)] = {
+        "score_h": body.score_h,
+        "score_a": body.score_a,
+    }
+    try:
+        save_r32(r32_data)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
     return {"ok": True}

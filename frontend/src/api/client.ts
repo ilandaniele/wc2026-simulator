@@ -141,6 +141,27 @@ export interface MarketOddsResponse {
   odds: MarketOddsEntry[]
 }
 
+export interface R32Match {
+  id: number
+  home: string
+  home_slot: string
+  away: string
+  away_slot: string
+  pH: number
+  pD: number
+  pA: number
+  score_h: number | null
+  score_a: number | null
+  played: boolean
+  uncertain: boolean
+  home_coach: string | null
+  away_coach: string | null
+}
+
+export interface R32Response {
+  matches: R32Match[]
+}
+
 export interface RetrainRequest {
   half_life: number
   n_draws: number
@@ -293,6 +314,31 @@ export async function getMarketOdds(): Promise<MarketOddsResponse> {
 export async function postRetrain(req: RetrainRequest): Promise<RetrainResponse> {
   try {
     const { data } = await http.post<RetrainResponse>('/model/retrain', req)
+    return data
+  } catch (err) {
+    normalizeError(err)
+  }
+}
+
+export async function getR32(): Promise<R32Response> {
+  try {
+    const { data } = await http.get<R32Response>('/tourney/r32')
+    return data
+  } catch (err) {
+    normalizeError(err)
+  }
+}
+
+export async function putR32Result(
+  matchId: number,
+  scoreH: number,
+  scoreA: number,
+): Promise<{ ok: boolean }> {
+  try {
+    const { data } = await http.put<{ ok: boolean }>(`/tourney/r32/${matchId}`, {
+      score_h: scoreH,
+      score_a: scoreA,
+    })
     return data
   } catch (err) {
     normalizeError(err)
