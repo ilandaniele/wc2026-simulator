@@ -42,7 +42,7 @@
       "gd": 3,
       "g": "B"
     },
-    "CuraÃ§ao": {
+    "Curaçao": {
       "pts": 1,
       "gf": 1,
       "ga": 4,
@@ -56,7 +56,7 @@
       "gd": 1,
       "g": "B"
     },
-    "CÃ´te d'Ivoire": {
+    "Côte d'Ivoire": {
       "pts": 4,
       "gf": 3,
       "ga": 2,
@@ -231,7 +231,7 @@
       "gd": -1,
       "g": "I"
     },
-    "TÃ¼rkiye": {
+    "Türkiye": {
       "pts": 7,
       "gf": 6,
       "ga": 1,
@@ -373,11 +373,11 @@
     "B": [
       "Cabo Verde",
       "Canada",
-      "CuraÃ§ao",
+      "Curaçao",
       "Czechia"
     ],
     "C": [
-      "CÃ´te d'Ivoire",
+      "Côte d'Ivoire",
       "Ecuador",
       "Egypt",
       "France"
@@ -414,7 +414,7 @@
     ],
     "I": [
       "Tunisia",
-      "TÃ¼rkiye",
+      "Türkiye",
       "USA",
       "Uruguay"
     ],
