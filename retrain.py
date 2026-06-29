@@ -9,7 +9,7 @@ Uso:  python3 retrain.py [half_life_years] [n_draws]
 """
 import csv, sys, json, datetime as dt, urllib.request, numpy as np
 
-HALFLIFE = float(sys.argv[1]) if len(sys.argv) > 1 else 3.0
+HALFLIFE = float(sys.argv[1]) if len(sys.argv) > 1 else 1.5
 NDRAW    = int(sys.argv[2])   if len(sys.argv) > 2 else 400
 RIDGE    = 6.0          # fuerza del prior gaussiano (shrinkage jerárquico)
 DATA_URL = "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
@@ -46,6 +46,8 @@ def build(rows):
         age = (ref - d).days/365.25
         wt  = 0.5 ** (age/HALFLIFE)
         if any(b in r["tournament"] for b in BIG): wt *= 1.6
+        # WC2026 in-tournament results carry 10x extra signal
+        if d.year == 2026 and "FIFA World Cup" in r["tournament"]: wt *= 10.0
         neutral = r["neutral"].upper()=="TRUE"
         hi, ai = TI[h], TI[a]
         # fila goles local: base + home_adv(si no neutral) + att_h - def_a
@@ -86,7 +88,10 @@ def export(beta, cov):
             "deff":[[round(float(v),4) for v in deff[i]] for i in range(N)],
             "base":[round(float(v),4) for v in base],
             "home_adv":[round(float(v),4) for v in home]}
-    json.dump(POST, open("POST.json","w"))
+    import os
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "POST.json")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    json.dump(POST, open(out, "w"))
     # ranking sanity
     s = att.mean(1)+deff.mean(1)
     order = np.argsort(-s)
