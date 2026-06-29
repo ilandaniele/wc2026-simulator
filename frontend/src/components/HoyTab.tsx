@@ -259,7 +259,7 @@ export function HoyTab() {
 
   return (
     <div>
-      {SCHEDULE.map(day => {
+      {SCHEDULE.filter(day => !isPast(day.date)).map(day => {
         const past = isPast(day.date)
         const today = isToday(day.date)
 

@@ -175,8 +175,13 @@ def _build_matrices(
 
         age = (ref - d).days / 365.25
         wt = 0.5 ** (age / half_life)
-        if any(b in r.get("tournament", "") for b in _BIG_TOURNAMENTS):
+        tournament = r.get("tournament", "")
+        if any(b in tournament for b in _BIG_TOURNAMENTS):
             wt *= 1.6
+        # Current WC2026 group stage results are the strongest signal —
+        # boost them 10x so in-tournament form dominates historical priors.
+        if d.year == 2026 and "FIFA World Cup" in tournament:
+            wt *= 10.0
         neutral = r.get("neutral", "").upper() == "TRUE"
         hi = _TI[h]
         ai = _TI[a]
@@ -266,7 +271,7 @@ def _export_draws(
 # ---------------------------------------------------------------------------
 
 
-def retrain(half_life: float = 3.0, n_draws: int = 400) -> dict[str, Any]:
+def retrain(half_life: float = 1.5, n_draws: int = 400) -> dict[str, Any]:
     """Fit the model and write data/POST.json + data/model_meta.json.
 
     Parameters

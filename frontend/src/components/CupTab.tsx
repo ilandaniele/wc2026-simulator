@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { simulateTournament, getR32, putR32Result, type SimulationResult, type R32Match } from '../api/client'
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query'
+import { simulateTournament, getR32, putR32Result, simulateModal, type SimulationResult, type R32Match, type Scoreline } from '../api/client'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,9 +55,10 @@ interface R32CardProps {
   match: R32Match
   onResult: (matchId: number, scoreH: number, scoreA: number) => void
   saving: boolean
+  scorelines?: Scoreline[]
 }
 
-function R32Card({ match, onResult, saving }: R32CardProps) {
+function R32Card({ match, onResult, saving, scorelines }: R32CardProps) {
   const [editH, setEditH] = useState<string>(match.score_h !== null ? String(match.score_h) : '')
   const [editA, setEditA] = useState<string>(match.score_a !== null ? String(match.score_a) : '')
   const [editing, setEditing] = useState(false)
@@ -174,6 +175,22 @@ function R32Card({ match, onResult, saving }: R32CardProps) {
           </div>
         )}
 
+        {/* Top-2 probable scorelines */}
+        {!match.played && scorelines && scorelines.length > 0 && (
+          <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--dim)' }}>
+            {scorelines.slice(0, 2).map((s, i) => (
+              <span key={i}>
+                {i > 0 && <span style={{ margin: '0 0.4rem' }}>·</span>}
+                <span style={{ color: 'var(--dim)', fontWeight: 500 }}>{i === 0 ? '1°' : '2°'} </span>
+                <span style={{ color: 'var(--txt)', fontWeight: 700, background: 'var(--line)', padding: '0.1rem 0.4rem', borderRadius: '3px' }}>
+                  {s.h}–{s.a}
+                </span>
+                <span style={{ marginLeft: '0.2rem' }}>({(s.prob * 100).toFixed(1)}%)</span>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Score entry */}
         {editing ? (
           <div style={{ marginTop: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -225,6 +242,8 @@ function R32Card({ match, onResult, saving }: R32CardProps) {
 // ---------------------------------------------------------------------------
 function R32View() {
   const queryClient = useQueryClient()
+  const [autofilling, setAutofilling] = useState(false)
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['r32'],
     queryFn: getR32,
@@ -239,26 +258,66 @@ function R32View() {
     },
   })
 
+  const matches = data?.matches ?? []
+
+  // Fetch top-2 probable scorelines for each non-uncertain unplayed match
+  const modalQueries = useQueries({
+    queries: matches.map(m => ({
+      queryKey: ['r32modal', m.home, m.away],
+      queryFn: () => simulateModal({ home: m.home, away: m.away, top_k: 2 }),
+      enabled: !m.uncertain && !m.played,
+      staleTime: 10 * 60_000,
+    })),
+  })
+
+  async function handleAutoFill() {
+    setAutofilling(true)
+    try {
+      const jobs: Promise<unknown>[] = []
+      matches.forEach((m, i) => {
+        if (!m.played && !m.uncertain) {
+          const top = modalQueries[i]?.data?.scorelines?.[0]
+          if (top) jobs.push(putR32Result(m.id, top.h, top.a))
+        }
+      })
+      await Promise.all(jobs)
+      void queryClient.invalidateQueries({ queryKey: ['r32'] })
+    } finally {
+      setAutofilling(false)
+    }
+  }
+
   if (isLoading) return <Skeleton />
   if (isError) return <div style={{ color: 'var(--red)', padding: '1rem' }}>Error al cargar R32</div>
 
-  const matches = data?.matches ?? []
   const played = matches.filter(m => m.played).length
+  const unplayed = matches.filter((m, i) => !m.played && !m.uncertain && modalQueries[i]?.data?.scorelines?.[0])
+  const modalLoading = modalQueries.some(q => q.isLoading)
 
   return (
     <div>
-      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--dim)', margin: 0 }}>
           {played > 0 ? `${played}/16 partidos jugados` : 'Bracket proyectado · ingresá resultados reales a medida que se juegan'}
         </p>
+        {unplayed.length > 0 && (
+          <button
+            onClick={() => void handleAutoFill()}
+            disabled={autofilling || modalLoading}
+            style={{ padding: '0.3rem 0.75rem', background: 'var(--violet)', color: '#fff', border: 'none', borderRadius: '6px', cursor: autofilling || modalLoading ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.8rem', opacity: autofilling || modalLoading ? 0.6 : 1 }}
+          >
+            {autofilling ? 'Completando…' : `Completar ${unplayed.length} con más probable`}
+          </button>
+        )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0' }}>
-        {matches.map(m => (
+        {matches.map((m, i) => (
           <R32Card
             key={m.id}
             match={m}
             onResult={(id, h, a) => mutation.mutate({ id, h, a })}
             saving={mutation.isPending}
+            scorelines={modalQueries[i]?.data?.scorelines}
           />
         ))}
       </div>
