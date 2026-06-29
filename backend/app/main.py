@@ -104,7 +104,7 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan â€" no external connections to open/close."""
-    yield
+    yield  # pragma: no cover
 
 
 # ---------------------------------------------------------------------------
@@ -750,7 +750,7 @@ def _derive_r32_bracket(
         for x in top8:
             if x["g"] != slot:
                 return str(x["t"])
-        return "TBD"
+        return "TBD"  # pragma: no cover — impossible: top8 spans 8 distinct groups
 
     def slot_label(slot: str) -> str:
         if assign and slot in assign:

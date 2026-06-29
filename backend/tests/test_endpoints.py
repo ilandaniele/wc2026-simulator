@@ -659,6 +659,34 @@ async def test_get_r32_fallback_assign_thirds_none(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
+async def test_get_r32_fallback_unknown_team_in_bracket(client: AsyncClient) -> None:
+    """GET /tourney/r32: group winner unknown in post → pH/pD/pA=0.0 (main.py line 789)."""
+    import copy
+
+    from backend.app.model.store import load_tourney
+
+    base = load_tourney()
+    fake = copy.deepcopy(base)
+    # Replace group-A index-0 member with "Ghost FC" (not in post["teams"])
+    # Give Ghost FC 9 pts so it wins the group → wn["A"] = "Ghost FC"
+    fake["groups"]["A"][0] = "Ghost FC"
+    fake["state"]["Ghost FC"] = {"pts": 9, "gf": 10, "ga": 0, "gd": 10, "g": "A"}
+
+    with (
+        patch("backend.app.main.load_r32_bracket", return_value=None),
+        patch("backend.app.main.load_tourney", return_value=fake),
+    ):
+        resp = await client.get("/tourney/r32")
+
+    assert resp.status_code == 200
+    matches = resp.json()["matches"]
+    # Match 79 uses wn["A"] (= Ghost FC) — not in model → zeroed probabilities
+    match_79 = next((m for m in matches if m["id"] == 79), None)
+    assert match_79 is not None
+    assert match_79["pH"] == 0.0 and match_79["pD"] == 0.0 and match_79["pA"] == 0.0
+
+
+@pytest.mark.anyio
 async def test_get_r32_static_bracket_unknown_team(client: AsyncClient) -> None:
     """GET /tourney/r32 static bracket with unknown team → pH/pD/pA all 0.0."""
     fake_bracket = [
@@ -675,3 +703,28 @@ async def test_get_r32_static_bracket_unknown_team(client: AsyncClient) -> None:
     assert resp.status_code == 200
     m = resp.json()["matches"][0]
     assert m["pH"] == 0.0 and m["pD"] == 0.0 and m["pA"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# _h2h_ci unit test — line 279 (p_h < 1e-8 early continue)
+# ---------------------------------------------------------------------------
+
+
+def test_h2h_ci_low_lambda_triggers_continue() -> None:
+    """_h2h_ci with near-zero lambda hits the p_h < 1e-8 early continue (main.py 279).
+
+    With base=-5, att=-5 → lh = exp(-10) ≈ 4.5e-5.
+    For h_g >= 2: p_h ≈ 1e-9 < 1e-8, so the continue branch executes.
+    """
+    from backend.app.main import _h2h_ci
+
+    n_draws = 3
+    post_tiny = {
+        "teams": ["WeakTeam", "StrongTeam"],
+        "att": [[-5.0] * n_draws, [0.0] * n_draws],
+        "deff": [[0.0] * n_draws, [0.0] * n_draws],
+        "base": [-5.0] * n_draws,
+        "home_adv": [0.0] * n_draws,
+    }
+    ph, pd, pa, ci_lo, ci_med, ci_hi = _h2h_ci(0, 1, post_tiny, 0.0)
+    assert abs(ph + pd + pa - 1.0) < 1e-6
