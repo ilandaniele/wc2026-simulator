@@ -9,4 +9,4 @@ services:
     healthCheckPath: /health
     envVars:
       - key: ALLOWED_ORIGINS
-        value: https://wc2026-simulator.netlify.app  # update after Netlify deploy
+        value: https://wc2026-simulator-435.netlify.app,https://wc2026-simulator.netlify.app
