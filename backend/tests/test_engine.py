@@ -321,3 +321,44 @@ def test_champ_sum(post: dict, tourney: dict, zero_adj) -> None:
     )
     total_champ = sum(v["champ"] for v in tally.values())
     assert total_champ == n, f"Expected champ count == {n}, got {total_champ}"
+
+
+# ---------------------------------------------------------------------------
+# rho=0 branch in play() — independent Poisson (lines 185-186 in engine.py)
+# ---------------------------------------------------------------------------
+
+
+def test_play_rho_zero(post: dict, zero_adj) -> None:
+    """play() with rho=0.0 exercises the independent Poisson branch."""
+    from backend.app.simulation.engine import play
+
+    adja, adjd = zero_adj
+    ti = {t: i for i, t in enumerate(post["teams"])}
+    state = mul(SEED)
+    x, y, w = play(ti["Argentina"], ti["Jordan"], 0, state, False, 0.0, post, adja, adjd)
+    assert w in (0, 1, 2), f"Unexpected winner index: {w}"
+
+
+# ---------------------------------------------------------------------------
+# Fallback bracket in run_tournament() when assign_thirds returns None
+# ---------------------------------------------------------------------------
+
+
+def test_run_tournament_fallback_bracket(post: dict, tourney: dict, zero_adj) -> None:
+    """run_tournament() with assign_thirds mocked to None uses the strength-seeded fallback."""
+    from unittest.mock import patch
+
+    adja, adjd = zero_adj
+    with patch("backend.app.simulation.engine.assign_thirds", return_value=None):
+        tally = run_tournament(
+            n=50,
+            post=post,
+            tourney_state=tourney,
+            adja=adja,
+            adjd=adjd,
+            rho=0.05,
+            seed=SEED,
+        )
+    # Exactly one champion per simulation
+    total_champ = sum(v["champ"] for v in tally.values())
+    assert total_champ == 50

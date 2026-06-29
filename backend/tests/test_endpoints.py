@@ -438,3 +438,225 @@ async def test_unknown_team(client: AsyncClient) -> None:
     assert "Atlantis" in data["error"]["detail"], (
         f"Expected team name in detail: {data['error']['detail']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /health
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_health(client: AsyncClient) -> None:
+    """GET /health → 200 {status: ok}."""
+    resp = await client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# FileNotFoundError → 503 for various endpoints
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_get_teams_file_not_found(client: AsyncClient) -> None:
+    """GET /teams when POST.json missing → 503."""
+    with patch("backend.app.main.load_post", side_effect=FileNotFoundError("POST.json")):
+        resp = await client.get("/teams")
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_model_status_file_not_found(client: AsyncClient) -> None:
+    """GET /model/status when model_meta.json missing → 503."""
+    with patch("backend.app.main.load_meta", side_effect=FileNotFoundError("meta")):
+        resp = await client.get("/model/status")
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_model_strength_file_not_found(client: AsyncClient) -> None:
+    """GET /model/strength when POST.json missing → 503."""
+    with patch("backend.app.main.load_post", side_effect=FileNotFoundError("POST.json")):
+        resp = await client.get("/model/strength")
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_tourney_state_file_not_found(client: AsyncClient) -> None:
+    """GET /tourney/state when tourney.json missing → 503."""
+    with patch("backend.app.main.load_tourney", side_effect=FileNotFoundError("tourney")):
+        resp = await client.get("/tourney/state")
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_simulate_tournament_file_not_found(client: AsyncClient) -> None:
+    """POST /simulate/tournament when POST.json missing → 503."""
+    with patch("backend.app.main.load_post", side_effect=FileNotFoundError("POST.json")):
+        resp = await client.post(
+            "/simulate/tournament",
+            json={"n": 10, "rho": 0.05, "model_id": "current"},
+        )
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_simulate_match_file_not_found(client: AsyncClient) -> None:
+    """POST /simulate/match when POST.json missing → 503."""
+    with patch("backend.app.main.load_post", side_effect=FileNotFoundError("POST.json")):
+        resp = await client.post(
+            "/simulate/match",
+            json={"home": "Argentina", "away": "Jordan"},
+        )
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_simulate_modal_file_not_found(client: AsyncClient) -> None:
+    """POST /simulate/modal when POST.json missing → 503."""
+    with patch("backend.app.main.load_post", side_effect=FileNotFoundError("POST.json")):
+        resp = await client.post(
+            "/simulate/modal",
+            json={"home": "Argentina", "away": "Jordan"},
+        )
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_simulate_modal_unknown_team(client: AsyncClient) -> None:
+    """POST /simulate/modal with unknown team → 400 UNKNOWN_TEAM."""
+    resp = await client.post(
+        "/simulate/modal",
+        json={"home": "Atlantis", "away": "Argentina"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "UNKNOWN_TEAM"
+
+
+@pytest.mark.anyio
+async def test_simulate_h2h_file_not_found(client: AsyncClient) -> None:
+    """POST /simulate/h2h when POST.json missing → 503."""
+    with patch("backend.app.main.load_post", side_effect=FileNotFoundError("POST.json")):
+        resp = await client.post(
+            "/simulate/h2h",
+            json={"home": "Argentina", "away": "Jordan"},
+        )
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_simulate_h2h_unknown_team(client: AsyncClient) -> None:
+    """POST /simulate/h2h with unknown team → 400 UNKNOWN_TEAM."""
+    resp = await client.post(
+        "/simulate/h2h",
+        json={"home": "Atlantis", "away": "Argentina"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "UNKNOWN_TEAM"
+
+
+@pytest.mark.anyio
+async def test_simulate_match_rho_zero(client: AsyncClient) -> None:
+    """POST /simulate/match with rho=0 exercises the independent Poisson branch."""
+    resp = await client.post(
+        "/simulate/match",
+        json={"home": "Argentina", "away": "Jordan", "n_per_draw": 30, "rho": 0.0},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    total = data["pH"] + data["pD"] + data["pA"]
+    assert abs(total - 1.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# OSError in write operations → 500
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_put_tourney_state_write_error(client: AsyncClient) -> None:
+    """PUT /tourney/state OSError during save → 500."""
+    get_resp = await client.get("/tourney/state")
+    assert get_resp.status_code == 200
+    body = get_resp.json()
+    with patch("backend.app.main.save_tourney", side_effect=OSError("disk full")):
+        resp = await client.put("/tourney/state", json=body)
+    assert resp.status_code == 500
+
+
+@pytest.mark.anyio
+async def test_put_market_odds_write_error(client: AsyncClient) -> None:
+    """PUT /market/odds OSError during save → 500."""
+    with patch("backend.app.main.save_market", side_effect=OSError("disk full")):
+        resp = await client.put("/market/odds", json={"odds": {"A|B": {"h": 200, "a": 180}}})
+    assert resp.status_code == 500
+
+
+@pytest.mark.anyio
+async def test_put_r32_result_write_error(client: AsyncClient) -> None:
+    """PUT /tourney/r32/{match_id} OSError during save → 500."""
+    with patch("backend.app.main.save_r32", side_effect=OSError("disk full")):
+        resp = await client.put("/tourney/r32/73", json={"score_h": 1, "score_a": 0})
+    assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# GET /market/odds — FileNotFoundError and malformed key
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_market_odds_file_not_found(client: AsyncClient) -> None:
+    """GET /market/odds when market.json missing → 503."""
+    with patch("backend.app.main.load_market", side_effect=FileNotFoundError("market.json")):
+        resp = await client.get("/market/odds")
+    assert resp.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_market_odds_malformed_key(client: AsyncClient) -> None:
+    """GET /market/odds skips entries whose key has no | separator."""
+    with patch(
+        "backend.app.main.load_market",
+        return_value={"INVALID_KEY": {"h": 200, "d": 300, "a": 180}},
+    ):
+        resp = await client.get("/market/odds")
+    assert resp.status_code == 200
+    assert resp.json()["odds"] == []
+
+
+# ---------------------------------------------------------------------------
+# GET /tourney/r32 — fallback bracket and unknown team in static bracket
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_get_r32_fallback_computed_bracket(client: AsyncClient) -> None:
+    """GET /tourney/r32 without static bracket falls back to _derive_r32_bracket()."""
+    with patch("backend.app.main.load_r32_bracket", return_value=None):
+        resp = await client.get("/tourney/r32")
+    assert resp.status_code == 200
+    matches = resp.json()["matches"]
+    assert len(matches) == 16
+    for m in matches:
+        assert "pH" in m and "pD" in m and "pA" in m
+
+
+@pytest.mark.anyio
+async def test_get_r32_static_bracket_unknown_team(client: AsyncClient) -> None:
+    """GET /tourney/r32 static bracket with unknown team → pH/pD/pA all 0.0."""
+    fake_bracket = [
+        {
+            "id": 73,
+            "home": "UNKNOWN_TEAM_X",
+            "home_slot": "2B",
+            "away": "UNKNOWN_TEAM_Y",
+            "away_slot": "2A",
+        }
+    ]
+    with patch("backend.app.main.load_r32_bracket", return_value=fake_bracket):
+        resp = await client.get("/tourney/r32")
+    assert resp.status_code == 200
+    m = resp.json()["matches"][0]
+    assert m["pH"] == 0.0 and m["pD"] == 0.0 and m["pA"] == 0.0
