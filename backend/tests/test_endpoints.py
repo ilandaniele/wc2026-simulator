@@ -644,6 +644,21 @@ async def test_get_r32_fallback_computed_bracket(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
+async def test_get_r32_fallback_assign_thirds_none(client: AsyncClient) -> None:
+    """GET /tourney/r32 with assign_thirds returning None exercises t_slot/slot_label fallback."""
+    with (
+        patch("backend.app.main.load_r32_bracket", return_value=None),
+        patch("backend.app.main.assign_thirds", return_value=None),
+    ):
+        resp = await client.get("/tourney/r32")
+    assert resp.status_code == 200
+    matches = resp.json()["matches"]
+    assert len(matches) == 16
+    for m in matches:
+        assert "pH" in m and "pD" in m and "pA" in m
+
+
+@pytest.mark.anyio
 async def test_get_r32_static_bracket_unknown_team(client: AsyncClient) -> None:
     """GET /tourney/r32 static bracket with unknown team → pH/pD/pA all 0.0."""
     fake_bracket = [
