@@ -47,9 +47,9 @@ const SCHEDULE: MatchDay[] = [
     date: '2026-06-29',
     title: 'Ronda de 32 – Día 1 (continuación)',
     matches: [
-      { home: 'Brazil',       away: 'Japan',    label: 'Partido 74' },
-      { home: 'Germany',      away: 'Paraguay', label: 'Partido 75' },
-      { home: 'Netherlands',  away: 'Morocco',  label: 'Partido 76' },
+      { home: 'Brazil',       away: 'Japan',    label: 'Partido 74', score: [2, 1] },
+      { home: 'Germany',      away: 'Paraguay', label: 'Partido 75', score: [1, 1] },
+      { home: 'Netherlands',  away: 'Morocco',  label: 'Partido 76', score: [1, 1] },
     ],
   },
   {
