@@ -11,7 +11,7 @@ import csv, sys, json, datetime as dt, urllib.request, numpy as np
 
 HALFLIFE = float(sys.argv[1]) if len(sys.argv) > 1 else 1.5
 NDRAW    = int(sys.argv[2])   if len(sys.argv) > 2 else 400
-RIDGE    = 6.0          # fuerza del prior gaussiano (shrinkage jerárquico)
+RIDGE    = 10.0         # fuerza del prior gaussiano (shrinkage jerárquico); 10 calibra mejor el knockout
 DATA_URL = "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
 
 TEAMS = ["Algeria","Argentina","Australia","Austria","Belgium","Bosnia and Herzegovina","Brazil","Cabo Verde","Canada","Colombia","Croatia","Curaçao","Czechia","Côte d'Ivoire","DR Congo","Ecuador","Egypt","England","France","Germany","Ghana","Haiti","Iran","Iraq","Japan","Jordan","Mexico","Morocco","Netherlands","New Zealand","Norway","Panama","Paraguay","Portugal","Qatar","Saudi Arabia","Scotland","Senegal","South Africa","South Korea","Spain","Sweden","Switzerland","Tunisia","Türkiye","USA","Uruguay","Uzbekistan"]
@@ -46,8 +46,8 @@ def build(rows):
         age = (ref - d).days/365.25
         wt  = 0.5 ** (age/HALFLIFE)
         if any(b in r["tournament"] for b in BIG): wt *= 1.6
-        # WC2026 in-tournament results carry 10x extra signal
-        if d.year == 2026 and "FIFA World Cup" in r["tournament"]: wt *= 10.0
+        # WC2026 in-tournament results carry extra signal; 5x balances recent form vs group-stage extremes
+        if d.year == 2026 and "FIFA World Cup" in r["tournament"]: wt *= 5.0
         neutral = r["neutral"].upper()=="TRUE"
         hi, ai = TI[h], TI[a]
         # fila goles local: base + home_adv(si no neutral) + att_h - def_a

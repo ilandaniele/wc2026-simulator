@@ -27,7 +27,7 @@ import numpy as np
 # Constants (verbatim from retrain.py)
 # ---------------------------------------------------------------------------
 
-RIDGE: float = 6.0
+RIDGE: float = 10.0
 DATA_URL: str = (
     "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
 )
@@ -44,9 +44,9 @@ TEAMS: list[str] = [
     "Canada",
     "Colombia",
     "Croatia",
-    "CuraÃ§ao",
+    "Curaçao",
     "Czechia",
-    "CÃ´te d'Ivoire",
+    "Côte d'Ivoire",
     "DR Congo",
     "Ecuador",
     "Egypt",
@@ -77,7 +77,7 @@ TEAMS: list[str] = [
     "Sweden",
     "Switzerland",
     "Tunisia",
-    "TÃ¼rkiye",
+    "Türkiye",
     "USA",
     "Uruguay",
     "Uzbekistan",
@@ -86,8 +86,8 @@ TEAMS: list[str] = [
 ALIAS: dict[str, str] = {
     "Cape Verde": "Cabo Verde",
     "Czech Republic": "Czechia",
-    "Ivory Coast": "CÃ´te d'Ivoire",
-    "Turkey": "TÃ¼rkiye",
+    "Ivory Coast": "Côte d'Ivoire",
+    "Turkey": "Türkiye",
     "United States": "USA",
     "DR Congo": "DR Congo",
     "Congo DR": "DR Congo",
@@ -98,7 +98,7 @@ _N: int = len(TEAMS)
 
 _BIG_TOURNAMENTS: tuple[str, ...] = (
     "FIFA World Cup",
-    "Copa AmÃ©rica",
+    "Copa América",
     "UEFA Euro",
     "African Cup",
     "Gold Cup",
@@ -178,10 +178,9 @@ def _build_matrices(
         tournament = r.get("tournament", "")
         if any(b in tournament for b in _BIG_TOURNAMENTS):
             wt *= 1.6
-        # Current WC2026 group stage results are the strongest signal —
-        # boost them 10x so in-tournament form dominates historical priors.
+        # Current WC2026 results carry extra signal; 5x balances recent form vs group-stage extremes.
         if d.year == 2026 and "FIFA World Cup" in tournament:
-            wt *= 10.0
+            wt *= 5.0
         neutral = r.get("neutral", "").upper() == "TRUE"
         hi = _TI[h]
         ai = _TI[a]
